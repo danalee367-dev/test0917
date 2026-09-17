@@ -39,6 +39,12 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-optional: var(--optional);
+  --color-optional-foreground: var(--optional-foreground);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -53,8 +59,10 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.527 0.154 150.069);
-  --primary-foreground: oklch(0.982 0.018 155.826);
+  /* LG CI 팔레트(lgci.css)의 --lg-red. 이 도구 전체가 LG전자 브랜드로 고정되어 있어
+     프로토타입에서 확정한 색 매핑을 프로젝트 토큰으로 그대로 승격한다. */
+  --primary: #a50034;
+  --primary-foreground: #ffffff;
   --secondary: oklch(0.967 0.001 286.375);
   --secondary-foreground: oklch(0.21 0.006 285.885);
   --muted: oklch(0.97 0 0);
@@ -64,7 +72,14 @@
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --ring: #a50034;
+  /* LG CI 보조 팔레트: 경고/안내/선택 동의 표시에 쓴다 */
+  --warning: #e97300;
+  --warning-foreground: #ffffff;
+  --info: #0096aa;
+  --info-foreground: #ffffff;
+  --optional: #b150c5;
+  --optional-foreground: #ffffff;
   --chart-1: oklch(0.837 0.128 66.29);
   --chart-2: oklch(0.705 0.213 47.604);
   --chart-3: oklch(0.646 0.222 41.116);
@@ -90,8 +105,9 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.448 0.119 151.328);
-  --primary-foreground: oklch(0.982 0.018 155.826);
+  /* #a50034는 어두운 배경에서 대비가 부족해 밝게 파생한 값(프로토타입과 동일) */
+  --primary: #e31b54;
+  --primary-foreground: #ffffff;
   --secondary: oklch(0.274 0.006 286.033);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
@@ -101,7 +117,13 @@
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --ring: #e31b54;
+  --warning: #f5943d;
+  --warning-foreground: #1d1d1b;
+  --info: #3cc3d4;
+  --info-foreground: #1d1d1b;
+  --optional: #c77bd6;
+  --optional-foreground: #1d1d1b;
   --chart-1: oklch(0.837 0.128 66.29);
   --chart-2: oklch(0.705 0.213 47.604);
   --chart-3: oklch(0.646 0.222 41.116);

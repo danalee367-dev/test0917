@@ -1,0 +1,2663 @@
+<!--
+  prototype shell: the review chrome every prototype starts from.
+
+  Keep this comment in the prototype you grow from here: it is the contract,
+  and later turns work from that file rather than from this one.
+
+  Contract (extend product screens; keep the review shell):
+  - Product:  .sh-stage contains only end-user product UI. Keep review notes,
+               rationale, instructions, and approval controls in conversation.
+  - Screens:  <section data-screen="slug" data-title="Label"> inside .sh-stage.
+               The selector, arrow keys, and #hash routing build themselves.
+               Use one option per product destination or distinct surface,
+               named by its product role. Keep baselines, variants, comparison
+               labels, steps, indexes, and progress out of names and states.
+               Links may use href="#slug".
+  - States:   "Default" is automatic. A screen declares only representative
+               presets in data-states="Empty,Error". Use natural, screen-specific
+               names. Reserve presets for important multi-step results, forced
+               data or errors, or materially different structure; keep one-click
+               and transient states as interactions. Use data-when="Empty" on
+               preset-only elements. Call prototypeShell.setState("Name") on
+               entry and setState("Default") on exit, including when repeated
+               actions cross a preset condition.
+  - Viewport: "vp (m)" cycles full / 390 / 768. The 390 preset is a
+               fixed-height, internally scrolling phone frame. Start a
+               mobile-first prototype by adding class="sh-vp-390" to <body>
+               (or a bootstrap classList.add before the chrome script runs).
+  - Pinning:  keep in-frame bars (tab bars, CTAs) inside the phone with
+               position: sticky; position: fixed pins to the browser window.
+  - Tokens:   replace the project-tokens block with project tokens copied
+               verbatim. Map differing names to --background, --foreground, and
+               --font afterwards; replace network fonts with a system stack and
+               note that substitution. Without a design system, keep this
+               palette as the finished style. When the project ships dark
+               tokens, copy them under .sh-theme-dark, which the shell sets
+               on both the root element and body, so :root.sh-theme-dark and
+               body.sh-theme-dark work too. A .dark class or a
+               prefers-color-scheme media query copied verbatim would follow
+               the reviewer's system instead of the toggle.
+  - Theme:    the light / dark switch (t) changes the product surface only.
+               It appears only when a .sh-theme-dark rule declares dark tokens,
+               so a prototype without them carries no theme control. Prototypes
+               always load light; the review bar keeps its own dark styling in
+               both themes so it still reads as chrome.
+  - Placeholders: .wf-pic stands in for pictures the prototype has no real
+               files for. Use real text everywhere text belongs.
+
+  - Chrome:   Keep exactly the screen selector, selected-screen state selector,
+               viewport cycle, and theme toggle.
+
+  Self-contained by design: no build, no framework, no network.
+-->
+<meta charset="utf-8">
+<title>Prototype</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* ── project tokens ──
+     LG CI Color Palette: lgci.css에서 verbatim 복사
+     semantic token: app/globals.css의 shadcn(base-nova) 구조에 LG CI를 매핑
+     폰트: Inter/Geist(next/font/google)를 시스템 스택으로 대체
+  */
+  :root {
+    /* Primary Color Palette */
+    --lg-red: #A50034;
+    --lg-gray: #6B6B6B;
+    --lg-white: #FFFFFF;
+
+    /* Secondary Color Palette */
+    --lg-pink: #EC008C;
+    --lg-teal: #0096AA;
+    --lg-orange: #E97300;
+    --lg-purple: #61279E;
+    --lg-light-teal: #3CD5AF;
+    --lg-yellow: #FFDA27;
+    --lg-light-purple: #B150C5;
+    --lg-light-gray: #D9DADB;
+    --lg-black: #1D1D1B;
+
+    /* Metallic Color Palette */
+    --lg-silver-metallic: #8A8C8F;
+    --lg-gold-metallic: #B49759;
+
+    /* semantic tokens */
+    --background: #F7F7F8;
+    --foreground: var(--lg-black);
+    --card: var(--lg-white);
+    --card-foreground: var(--lg-black);
+    --primary: var(--lg-red);
+    --primary-foreground: var(--lg-white);
+    --secondary: #F1F1F2;
+    --secondary-foreground: var(--lg-black);
+    --muted: #F4F4F5;
+    --muted-foreground: var(--lg-gray);
+    --accent: #F1F1F2;
+    --accent-foreground: var(--lg-black);
+    --destructive: #C81E1E;
+    --warning: var(--lg-orange);
+    --info: var(--lg-teal);
+    --border: var(--lg-light-gray);
+    --input: var(--lg-light-gray);
+    --ring: var(--lg-red);
+    /* 선택 동의는 필수 동의(LG red)와 확실히 갈려야 해서 보조 팔레트의 light-purple을 쓴다 */
+    --optional: var(--lg-light-purple);
+    --radius: 0.625rem;
+    --font: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  }
+
+  .sh-theme-dark {
+    /* lgci.css에 dark 팔레트가 없어 globals.css의 dark 구조에 LG CI를 맞춤.
+       --primary는 #A50034가 어두운 배경에서 대비가 부족해 밝게 파생한 값. */
+    --background: var(--lg-black);
+    --foreground: #F4F4F5;
+    --card: #262624;
+    --card-foreground: #F4F4F5;
+    --primary: #E31B54;
+    --primary-foreground: var(--lg-white);
+    --secondary: #33332F;
+    --secondary-foreground: #F4F4F5;
+    --muted: #2B2B28;
+    --muted-foreground: #A8A8A4;
+    --accent: #33332F;
+    --accent-foreground: #F4F4F5;
+    --destructive: #F07171;
+    --warning: #F5943D;
+    --info: #3CC3D4;
+    --border: #3C3C38;
+    --input: #3C3C38;
+    --ring: #E31B54;
+    /* #B150C5는 어두운 배경에서 대비가 부족해 밝게 파생한 값 */
+    --optional: #C77BD6;
+  }
+
+  /* ── review chrome (sh-*): keep; extend product styles elsewhere ── */
+  * { box-sizing: border-box }
+  body {
+    margin: 0; padding: 0 0 40px;
+    background: var(--background, #f6f6f6); color: var(--foreground, #3a3a3a);
+    font-family: var(--font, system-ui, sans-serif);
+  }
+  .sh-bar {
+    position: sticky; top: 0; z-index: 999;
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    padding: 8px 12px; background: #191a1c; color: #d7d7d7;
+    font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .sh-bar b, .sh-control-label { color: #8a8f98; font-weight: 500 }
+  .sh-control { display: inline-flex; gap: 5px; align-items: center }
+  .sh-bar button {
+    border: 1px solid #3a3d42; background: none; color: inherit;
+    font: inherit; padding: 2px 9px; border-radius: 99px; cursor: pointer;
+  }
+  .sh-bar select {
+    width: 170px; border: 1px solid #3a3d42; background: #232428; color: inherit;
+    font: inherit; padding: 3px 28px 3px 9px; border-radius: 7px; cursor: pointer;
+    color-scheme: dark;
+  }
+  #sh-screen { width: 190px }
+  .sh-bar button.on { background: #d7d7d7; color: #191a1c; border-color: #d7d7d7 }
+  .sh-theme { display: inline-flex; border: 1px solid #3a3d42; border-radius: 99px; overflow: hidden }
+  .sh-theme button { border: 0; border-radius: 0; padding: 2px 10px }
+  .sh-spacer { flex: 1 }
+  .sh-stage { max-width: 960px; margin: 0 auto; padding: 12px 16px 0 }
+  [hidden] { display: none !important }
+
+  /* viewport presets */
+  .sh-vp-390 .sh-stage {
+    max-width: 390px; background: var(--background, #f6f6f6);
+    border: 10px solid #191a1c; border-radius: 28px;
+    padding: 16px 12px; height: min(844px, calc(100dvh - 52px));
+    overflow-y: auto; margin-top: 12px;
+  }
+  .sh-vp-768 .sh-stage {
+    max-width: 768px; border: 1px solid #c4c4c4; border-radius: 12px;
+    padding: 16px; margin-top: 12px;
+  }
+
+  /* placeholders */
+  .wf-pic  { border-radius: 4px; background:
+             repeating-linear-gradient(45deg, #e9e9e9, #e9e9e9 6px, #f2f2f2 6px, #f2f2f2 12px) }
+  .sh-theme-dark .wf-pic { background: repeating-linear-gradient(45deg,
+             color-mix(in srgb, var(--foreground) 16%, transparent) 0 6px,
+             color-mix(in srgb, var(--foreground) 8%, transparent) 6px 12px) }
+
+  /* ══════════ product styles ══════════ */
+
+  .app-head { display: flex; align-items: center; gap: 10px; padding: 14px 0 18px }
+  .app-mark {
+    width: 26px; height: 26px; border-radius: 6px; flex: none;
+    background: var(--primary); color: var(--primary-foreground);
+    display: grid; place-items: center; font-size: 13px; font-weight: 700;
+  }
+  .app-name { font-size: 14px; font-weight: 600; letter-spacing: -.01em }
+  .app-ctx { margin-left: auto; font-size: 12px; color: var(--muted-foreground) }
+  .app-ctx strong { color: var(--foreground); font-weight: 600 }
+
+  h1 { font-size: 24px; font-weight: 700; letter-spacing: -.02em; margin: 0 0 8px }
+  .page-head { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap }
+  .page-head h1 { flex: 1 1 auto }
+  .summary-inline { font-size: 12px; color: var(--muted-foreground); text-align: right; line-height: 1.7; white-space: nowrap }
+  .summary-inline b { color: var(--foreground); font-weight: 600 }
+  .summary-inline span + span::before { content: "·"; margin: 0 6px; opacity: .5 }
+  h2 { font-size: 17px; font-weight: 700; letter-spacing: -.02em; margin: 0 }
+  h3 { font-size: 14px; font-weight: 700; margin: 0 0 11px }
+  .lede { margin: 0 0 24px; color: var(--muted-foreground); font-size: 14px; line-height: 1.65 }
+  .hint { font-size: 12px; color: var(--muted-foreground); line-height: 1.6 }
+
+  /* stepper */
+  .steps { display: flex; gap: 4px; margin: 0 0 24px; border-bottom: 1px solid var(--border) }
+  .step {
+    display: flex; align-items: center; gap: 7px; text-decoration: none;
+    padding: 0 14px 11px; font-size: 13px; color: var(--muted-foreground);
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .step-n {
+    width: 19px; height: 19px; border-radius: 50%; flex: none;
+    border: 1px solid var(--border); color: var(--muted-foreground);
+    display: grid; place-items: center; font-size: 11px; font-weight: 600;
+  }
+  .step[data-done] { color: var(--foreground) }
+  .step[data-done] .step-n { background: var(--foreground); border-color: var(--foreground); color: var(--background) }
+  .step[aria-current] { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600 }
+  .step[aria-current] .step-n { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground) }
+
+  /* card */
+  .card {
+    background: var(--card); color: var(--card-foreground);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 20px; margin-bottom: 14px;
+  }
+  .card-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px }
+  .card-sub { font-size: 12px; color: var(--muted-foreground); margin: 0 0 16px; line-height: 1.6 }
+  .card-muted { background: var(--muted); border-style: dashed }
+
+  /* field */
+  .field { margin-bottom: 30px }
+  .field:last-child { margin-bottom: 0 }
+  .field-label {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 15px; font-weight: 700; letter-spacing: -.01em;
+    margin-bottom: 11px;
+  }
+  .field-req { color: var(--primary); font-size: 12px; font-weight: 600 }
+  .field-opt { color: var(--muted-foreground); font-size: 12px; font-weight: 400 }
+  input[type=text], input[type=email], input[type=date], textarea, select {
+    width: 100%; font: inherit; font-size: 14px; color: var(--foreground);
+    background: var(--card); border: 1px solid var(--input);
+    border-radius: calc(var(--radius) * .8); padding: 9px 11px;
+  }
+  textarea { resize: vertical; min-height: 60px; line-height: 1.6 }
+  input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-visible {
+    outline: 2px solid var(--ring); outline-offset: 1px;
+  }
+  input[readonly] { background: var(--muted); color: var(--muted-foreground) }
+  input::placeholder, textarea::placeholder { color: var(--muted-foreground); opacity: .65 }
+  .field-help { font-size: 12px; color: var(--muted-foreground); margin-top: 6px; line-height: 1.6 }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px }
+
+  /* badge */
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+    font-size: 11px; font-weight: 600; line-height: 1.5; padding: 2px 8px; border-radius: 99px;
+    background: var(--secondary); color: var(--secondary-foreground);
+  }
+  .badge-primary { background: var(--primary); color: var(--primary-foreground) }
+  .badge-outline { background: transparent; border: 1px solid var(--border); color: var(--muted-foreground) }
+  .badge-optional { background: var(--optional); color: #fff }
+  .badge-warning { background: color-mix(in srgb, var(--warning) 14%, transparent); color: var(--warning) }
+  .badge-info { background: color-mix(in srgb, var(--info) 14%, transparent); color: var(--info) }
+  .badge-danger { background: color-mix(in srgb, var(--destructive) 12%, transparent); color: var(--destructive) }
+
+  /* button */
+  .btn {
+    font: inherit; font-size: 13px; font-weight: 500; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 9px 16px; border-radius: calc(var(--radius) * .8);
+    border: 1px solid transparent; background: var(--secondary); color: var(--secondary-foreground);
+  }
+  .btn-primary { background: var(--primary); color: var(--primary-foreground) }
+  .btn-primary:hover { background: color-mix(in srgb, var(--primary) 88%, #000) }
+  .btn-outline { background: transparent; border-color: var(--border); color: var(--foreground) }
+  .btn-outline:hover { background: var(--muted) }
+  .btn-ghost { background: transparent; color: var(--muted-foreground); padding: 7px 10px }
+  .btn-ghost:hover { background: var(--muted); color: var(--foreground) }
+  .btn-sm { font-size: 12px; padding: 6px 11px }
+  .btn-dashed { background: transparent; border: 1px dashed var(--border); color: var(--muted-foreground); width: 100%; padding: 12px }
+  .btn-dashed:hover { border-color: var(--primary); color: var(--primary) }
+  .btn:disabled { opacity: .45; cursor: not-allowed }
+
+  /* alert */
+  .alert {
+    display: flex; gap: 10px; align-items: flex-start;
+    border: 1px solid var(--border); border-radius: calc(var(--radius) * .8);
+    padding: 12px 14px; font-size: 13px; line-height: 1.6; margin-bottom: 14px;
+  }
+  .alert:last-child { margin-bottom: 0 }
+  .alert-icon { flex: none; font-weight: 700 }
+  .alert-body { min-width: 0 }
+  .alert-title { font-weight: 600; margin-bottom: 3px; display: block }
+  .alert-warning { border-color: color-mix(in srgb, var(--warning) 40%, transparent); background: color-mix(in srgb, var(--warning) 8%, transparent) }
+  .alert-warning .alert-icon, .alert-warning .alert-title { color: var(--warning) }
+  .alert-info { border-color: color-mix(in srgb, var(--info) 35%, transparent); background: color-mix(in srgb, var(--info) 7%, transparent) }
+  .alert-info .alert-icon, .alert-info .alert-title { color: var(--info) }
+  .alert-danger { border-color: color-mix(in srgb, var(--destructive) 40%, transparent); background: color-mix(in srgb, var(--destructive) 7%, transparent) }
+  .alert-danger .alert-icon, .alert-danger .alert-title { color: var(--destructive) }
+
+  /* purpose group */
+  .group-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-bottom: 16px; margin-bottom: 18px; border-bottom: 1px solid var(--border) }
+  .group-name { font-size: 19px; font-weight: 700; letter-spacing: -.02em }
+  .group-name[data-unset] { color: var(--muted-foreground); font-weight: 500; font-size: 15px }
+  .group-actions { margin-left: auto; display: flex; gap: 4px }
+
+  /* segmented toggle */
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 99px; overflow: hidden }
+  .seg button { font: inherit; font-size: 12px; font-weight: 500; cursor: pointer; border: 0; background: transparent; color: var(--muted-foreground); padding: 4px 13px }
+  .seg button[aria-pressed=true] { background: var(--primary); color: var(--primary-foreground) }
+  .seg button[aria-pressed=true][data-consent=optional] { background: var(--optional) }
+
+  /* 선택 동의 묶음: 카드 안의 선택 상태를 모두 보라로 묶어 필수 동의와 구분한다 */
+  [data-consent=optional] .opt[aria-pressed=true]:not([data-kind]) {
+    background: color-mix(in srgb, var(--optional) 12%, var(--card));
+    border-color: color-mix(in srgb, var(--optional) 55%, transparent);
+    color: color-mix(in srgb, var(--optional) 78%, #000);
+  }
+  [data-consent=optional] .opt:not([data-kind]):hover { border-color: var(--optional); color: var(--optional) }
+  [data-consent=optional] .tag:not([data-kind]) {
+    border-color: color-mix(in srgb, var(--optional) 50%, transparent);
+    color: color-mix(in srgb, var(--optional) 78%, #000);
+  }
+  .sh-theme-dark [data-consent=optional] .opt[aria-pressed=true]:not([data-kind]),
+  .sh-theme-dark [data-consent=optional] .tag:not([data-kind]) { color: var(--optional) }
+
+  /* option pills */
+  .opts { display: flex; gap: 6px; flex-wrap: wrap }
+  .opt {
+    font: inherit; font-size: 12px; cursor: pointer; text-align: left;
+    display: inline-flex; align-items: center; gap: 5px;
+    background: transparent; color: var(--foreground);
+    border: 1px solid var(--border); border-radius: 99px; padding: 5px 11px;
+  }
+  .opt:hover { border-color: var(--primary); color: var(--primary) }
+  /* 선택 상태는 연한 배경에 같은 색 글씨로 둔다. 체크 표시가 선택 여부를 분명히 한다. */
+  .opt[aria-pressed=true] {
+    background: color-mix(in srgb, var(--primary) 11%, var(--card));
+    border-color: color-mix(in srgb, var(--primary) 55%, transparent);
+    color: var(--primary); font-weight: 600;
+  }
+  .opt[aria-pressed=true]::before { content: "✓"; font-size: 10px; opacity: .9 }
+  .opt[aria-pressed=true] .opt-star { display: none }
+  .opt[data-kind=sensitive]:not([aria-pressed=true]),
+  .opt[data-kind=unique]:not([aria-pressed=true]) { border-color: color-mix(in srgb, var(--warning) 45%, transparent) }
+  .opt[data-kind=sensitive][aria-pressed=true],
+  .opt[data-kind=unique][aria-pressed=true] {
+    background: color-mix(in srgb, var(--warning) 13%, var(--card));
+    border-color: color-mix(in srgb, var(--warning) 55%, transparent);
+    color: color-mix(in srgb, var(--warning) 80%, #000);
+  }
+  .opt[data-kind=rrn][aria-pressed=true] {
+    background: color-mix(in srgb, var(--destructive) 11%, var(--card));
+    border-color: color-mix(in srgb, var(--destructive) 55%, transparent);
+    color: var(--destructive);
+  }
+  .opt-star { font-size: 9px; opacity: .75 }
+
+  /* picked tags */
+  .picked {
+    display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+    padding: 10px 11px; min-height: 42px;
+    border: 1px solid var(--input); border-radius: calc(var(--radius) * .8); background: var(--muted);
+  }
+  .picked:empty::after { content: "아래에서 항목을 선택하세요"; font-size: 13px; color: var(--muted-foreground) }
+  .tag { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 3px 4px 3px 9px; border-radius: 99px; background: var(--card); border: 1px solid var(--border) }
+  .tag[data-kind=sensitive] { border-color: var(--warning); color: var(--warning) }
+  .tag[data-kind=unique] { border-color: var(--warning); color: var(--warning) }
+  .tag[data-kind=rrn] { border-color: var(--destructive); color: var(--destructive) }
+  .tag button { font: inherit; font-size: 13px; line-height: 1; cursor: pointer; border: 0; background: transparent; color: inherit; opacity: .6; padding: 2px 4px; border-radius: 50% }
+  .tag button:hover { opacity: 1; background: var(--muted) }
+
+  /* picker */
+  .picker { margin-top: 12px; border: 1px solid var(--border); border-radius: calc(var(--radius) * .8) }
+  .picker-group { border-bottom: 1px solid var(--border) }
+  .picker-group:last-child { border-bottom: 0 }
+  .picker-group-head { display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: var(--muted); font-size: 12px; font-weight: 600 }
+  .picker-group-note { margin-left: auto; font-weight: 400; color: var(--muted-foreground); font-size: 11px }
+  .picker-items { padding: 11px 12px }
+  .picker-lock { padding: 26px 14px; text-align: center; font-size: 13px; color: var(--muted-foreground); line-height: 1.6 }
+  .picker-toggle {
+    width: 100%; font: inherit; font-size: 12px; cursor: pointer; text-align: center;
+    background: transparent; border: 0; border-top: 1px solid var(--border);
+    color: var(--muted-foreground); padding: 10px;
+  }
+  .picker-toggle:hover { color: var(--primary); background: var(--muted) }
+
+  /* biometric / rrn follow-up question */
+  .followup { border: 1px solid var(--warning); border-radius: calc(var(--radius) * .8); padding: 15px; margin-top: 12px; background: color-mix(in srgb, var(--warning) 6%, transparent) }
+  .followup-q { font-size: 13px; font-weight: 600; margin-bottom: 4px }
+  .followup-help { font-size: 12px; color: var(--muted-foreground); line-height: 1.6; margin-bottom: 12px }
+  .followup-choices { display: flex; gap: 8px; flex-wrap: wrap }
+  .followup-choice {
+    font: inherit; font-size: 12px; cursor: pointer; text-align: left; flex: 1 1 210px;
+    background: var(--card); border: 1px solid var(--border); border-radius: calc(var(--radius) * .8); padding: 11px 13px;
+  }
+  .followup-choice:hover { border-color: var(--warning) }
+  .followup-choice[aria-pressed=true] { border-color: var(--warning); box-shadow: inset 0 0 0 1px var(--warning) }
+  .followup-choice b { display: block; font-size: 13px; margin-bottom: 3px }
+  .followup-choice span { color: var(--muted-foreground); line-height: 1.55; display: block }
+  .followup-verdict { margin-top: 12px; font-size: 12px; line-height: 1.6; padding-top: 11px; border-top: 1px dashed var(--border) }
+
+  /* laws list */
+  .laws { margin-top: 12px; border: 1px solid var(--border); border-radius: calc(var(--radius) * .8); background: var(--muted); padding: 13px 15px }
+  .laws-head { font-size: 12px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 7px }
+  .laws ul { margin: 0; padding-left: 17px; font-size: 12px; line-height: 1.7; color: var(--muted-foreground) }
+  .laws li strong { color: var(--foreground); font-weight: 600 }
+
+  /* table */
+  table { width: 100%; border-collapse: collapse; font-size: 13px }
+  thead th { text-align: left; font-weight: 600; font-size: 12px; color: var(--muted-foreground); padding: 9px 12px; background: var(--muted); border-bottom: 1px solid var(--border); white-space: nowrap }
+  tbody td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; line-height: 1.6 }
+  tbody tr:last-child td { border-bottom: 0 }
+  .table-wrap { border: 1px solid var(--border); border-radius: calc(var(--radius) * .8); overflow: hidden }
+  .cell-actions { width: 1%; white-space: nowrap; text-align: right }
+  .is-off { opacity: .4; pointer-events: none }
+
+  /* checkbox */
+  .check { display: flex; align-items: flex-start; gap: 9px; font-size: 13px; cursor: pointer; line-height: 1.6 }
+  .check input { margin: 3px 0 0; accent-color: var(--primary); width: 15px; height: 15px; flex: none }
+
+  /* empty */
+  .empty { border: 1px dashed var(--border); border-radius: var(--radius); padding: 40px 24px; text-align: center; background: var(--card) }
+  .empty-title { font-size: 14px; font-weight: 600; margin-bottom: 6px }
+  .empty-text { font-size: 13px; color: var(--muted-foreground); margin: 0 auto 18px; max-width: 40ch; line-height: 1.65 }
+
+  /* start choices */
+  .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px }
+  .choice {
+    display: flex; flex-direction: column; align-items: flex-start;
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 22px; text-align: left; text-decoration: none; color: inherit; font: inherit; cursor: pointer;
+  }
+  .choice:hover { border-color: var(--primary) }
+  .choice-title { font-size: 15px; font-weight: 600; margin-bottom: 7px; display: flex; align-items: center; gap: 8px }
+  .choice-text { font-size: 13px; color: var(--muted-foreground); line-height: 1.65; margin-bottom: 20px }
+  .choice-cta { margin-top: auto; font-size: 13px; font-weight: 600; color: var(--primary) }
+  .choice[aria-disabled=true] { background: var(--muted); border-style: dashed; cursor: not-allowed }
+  .choice[aria-disabled=true]:hover { border-color: var(--border) }
+  .choice[aria-disabled=true] .choice-cta { color: var(--muted-foreground) }
+
+  /* summary + nav */
+  .summary { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; margin-bottom: 14px; font-size: 13px }
+  .summary dl { display: flex; gap: 20px; flex-wrap: wrap; margin: 0 }
+  .summary div { display: flex; gap: 7px; align-items: baseline }
+  .summary dt { color: var(--muted-foreground); font-size: 12px }
+  .summary dd { margin: 0; font-weight: 600 }
+  .nav { display: flex; gap: 10px; align-items: center; padding: 22px 0 8px; border-top: 1px solid var(--border); margin-top: 22px; flex-wrap: wrap }
+  .nav-spacer { flex: 1 }
+  .nav-note { font-size: 12px; color: var(--muted-foreground); flex: 1 1 100%; margin: 0 0 4px }
+
+  /* 저장 알림 */
+  .toast {
+    position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 12px);
+    background: var(--foreground); color: var(--background);
+    font-size: 13px; font-weight: 500; padding: 11px 20px; border-radius: 99px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.18); z-index: 900;
+    opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s;
+  }
+  .toast[data-show] { opacity: 1; transform: translate(-50%, 0) }
+  .sh-vp-390 .toast, .sh-vp-768 .toast { position: absolute }
+
+  /* compare box: 위탁 vs 제3자 제공 */
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px }
+  .compare-col { border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; background: var(--card) }
+  .compare-col h3 { font-size: 14px; color: var(--foreground); margin-bottom: 8px; display: flex; align-items: center; gap: 8px }
+  .compare-col p { font-size: 13px; line-height: 1.65; margin: 0 0 12px; color: var(--muted-foreground) }
+  .compare-col dl { margin: 0; font-size: 12px; line-height: 1.6 }
+  .compare-col dt { color: var(--muted-foreground); margin-bottom: 2px }
+  .compare-col dd { margin: 0 0 10px; }
+  .compare-col dd:last-child { margin-bottom: 0 }
+  .compare-ex { background: var(--muted); border-radius: calc(var(--radius) * .7); padding: 10px 12px; font-size: 12px; line-height: 1.65 }
+  .compare-ex b { display: block; margin-bottom: 4px; font-size: 11px; color: var(--muted-foreground); font-weight: 600 }
+
+  /* vendor picker */
+  .vendor-list { display: grid; gap: 0; max-height: 300px; overflow-y: auto; border: 1px solid var(--border); border-radius: calc(var(--radius) * .8) }
+  .vendor {
+    display: flex; gap: 12px; align-items: flex-start; text-align: left; width: 100%;
+    font: inherit; cursor: pointer; background: var(--card); border: 0;
+    border-bottom: 1px solid var(--border); padding: 11px 13px;
+  }
+  .vendor:last-child { border-bottom: 0 }
+  .vendor:hover { background: var(--muted) }
+  .vendor[aria-pressed=true] { background: color-mix(in srgb, var(--primary) 7%, transparent) }
+  .vendor-name { font-size: 13px; font-weight: 600; flex: none; width: 190px }
+  .vendor-work { font-size: 12px; color: var(--muted-foreground); line-height: 1.55 }
+  .vendor-check { margin-left: auto; flex: none; color: var(--primary); font-weight: 700; font-size: 13px; opacity: 0 }
+  .vendor[aria-pressed=true] .vendor-check { opacity: 1 }
+
+  /* 직접 입력 폼 */
+  .inline-form {
+    margin-top: 14px; padding: 20px;
+    border: 1px solid var(--primary); border-radius: calc(var(--radius) * .8);
+    background: color-mix(in srgb, var(--primary) 4%, transparent);
+  }
+  .inline-form-title { font-size: 15px; font-weight: 700; margin: 0 0 18px }
+  .inline-form .field { margin-bottom: 20px }
+  .inline-form-actions { display: flex; gap: 8px; flex-wrap: wrap }
+
+  /* 표 행 편집 */
+  tbody td input[type=text] {
+    font-size: 13px; padding: 6px 9px; width: 100%;
+    border-radius: calc(var(--radius) * .6);
+  }
+  tr[data-editing] td { background: color-mix(in srgb, var(--primary) 5%, transparent) }
+  .cell-actions .btn + .btn { margin-left: 2px }
+
+  /* tabs */
+  .tabs-row {
+    display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap;
+    border-bottom: 1px solid var(--border); margin-bottom: 20px;
+  }
+  .tabs-row .tabs { border-bottom: 0; margin-bottom: 0; flex: 1 1 auto }
+  .tabs-actions { display: flex; gap: 8px; flex-wrap: wrap; padding-bottom: 8px }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 20px; flex-wrap: wrap }
+  .tab {
+    font: inherit; font-size: 13px; font-weight: 500; cursor: pointer;
+    background: transparent; border: 0; border-bottom: 2px solid transparent;
+    color: var(--muted-foreground); padding: 9px 14px; margin-bottom: -1px;
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .tab:hover { color: var(--foreground) }
+  .tab[aria-selected=true] { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600 }
+
+  /* document */
+  .doc { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 40px 44px; font-size: 13px; line-height: 1.8 }
+  .doc-title { font-size: 17px; font-weight: 700; text-align: center; margin: 0 0 22px }
+  .doc h4 { font-size: 13px; font-weight: 700; margin: 26px 0 9px }
+  .doc h4:first-of-type { margin-top: 0 }
+  .doc p { margin: 0 0 13px }
+  .doc table { margin: 0 0 15px; font-size: 12px; border: 1px solid var(--foreground) }
+  .doc thead th { background: var(--muted); color: var(--foreground); border: 1px solid var(--foreground); padding: 7px 10px; white-space: normal }
+  .doc tbody td { border: 1px solid var(--foreground); padding: 7px 10px }
+  .doc-em { color: var(--primary); font-weight: 600 }
+  .doc-consent { display: flex; gap: 22px; flex-wrap: wrap; align-items: center; margin-top: 16px; padding-top: 15px; border-top: 1px dashed var(--border) }
+  .doc-consent-q { font-weight: 600 }
+  .doc-box { display: inline-flex; align-items: center; gap: 7px; color: var(--muted-foreground) }
+  .doc-box::before { content: ""; width: 13px; height: 13px; border: 1px solid var(--foreground); display: inline-block }
+  .doc-toc { background: var(--muted); border-radius: calc(var(--radius) * .8); padding: 16px 20px; margin: 0 0 24px; font-size: 12px }
+  .doc-toc ol { margin: 0; padding-left: 18px; columns: 2; column-gap: 28px }
+  .doc-toc li { margin-bottom: 4px }
+  .doc-toc a { color: inherit; text-decoration: none; border-bottom: 1px solid transparent }
+  .doc-toc a:hover { color: var(--primary); border-bottom-color: var(--primary) }
+  .doc h4:target, .doc h4[data-flash] { background: color-mix(in srgb, var(--primary) 12%, transparent); border-radius: 4px; padding: 3px 7px; margin-left: -7px }
+  .doc-date { text-align: right; font-size: 12px; color: var(--muted-foreground); margin: 0 0 18px }
+  .doc-fold { text-align: center; padding: 14px; margin-top: 8px; border-top: 1px dashed var(--border); font-size: 12px; color: var(--muted-foreground) }
+
+  .doclist-item { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 13px 0; border-bottom: 1px solid var(--border) }
+  .doclist-item:last-child { border-bottom: 0 }
+  .doclist-name { font-size: 13px; font-weight: 500 }
+  .doclist-meta { margin-left: auto; font-size: 12px; color: var(--muted-foreground) }
+
+  /* narrow */
+  @media (max-width: 760px) {
+    .field-row, .choices, .compare { grid-template-columns: 1fr }
+    .doc { padding: 24px 20px }
+    .doc-toc ol { columns: 1 }
+    .steps { overflow-x: auto; scrollbar-width: none }
+    .steps::-webkit-scrollbar { display: none }
+    .step { padding: 0 11px 11px; white-space: nowrap }
+    .vendor { flex-wrap: wrap; gap: 4px }
+    .vendor-name { width: auto }
+    /* 좁은 화면: 제목과 삭제가 한 줄, 동의 구분이 그 아래 한 줄 */
+    .group-name { flex: 1 1 auto }
+    .group-actions { order: 1 }
+    .group-head .seg { order: 2; flex: 1 1 100% }
+    .group-head .seg button { flex: 1 }
+  }
+  .sh-vp-390 .field-row, .sh-vp-390 .choices, .sh-vp-390 .compare { grid-template-columns: 1fr }
+  .sh-vp-390 .doc { padding: 22px 18px }
+  .sh-vp-390 .doc-toc ol { columns: 1 }
+  .sh-vp-390 .steps { overflow-x: auto; scrollbar-width: none }
+  .sh-vp-390 .step { padding: 0 10px 11px; white-space: nowrap }
+  .sh-vp-390 .app-ctx { display: none }
+  .sh-vp-390 .vendor { flex-wrap: wrap; gap: 4px }
+  .sh-vp-390 .vendor-name { width: auto }
+  .sh-vp-390 .group-name { flex: 1 1 auto }
+  .sh-vp-390 .group-actions { order: 1 }
+  .sh-vp-390 .group-head .seg { order: 2; flex: 1 1 100% }
+  .sh-vp-390 .group-head .seg button { flex: 1 }
+</style>
+
+<header class="sh-bar">
+  <b>proto</b>
+  <label class="sh-control"><span class="sh-control-label">screen</span><select id="sh-screen"></select></label>
+  <span class="sh-spacer"></span>
+  <label class="sh-control"><span class="sh-control-label">state</span><select id="sh-state"></select></label>
+  <button id="sh-vp">vp: full (m)</button>
+  <div class="sh-theme" id="sh-theme" role="group" aria-label="theme (t)" hidden>
+    <button data-theme="light">light</button><button data-theme="dark">dark</button>
+  </div>
+</header>
+
+<main class="sh-stage">
+
+<!-- ═══════════ 시작 ═══════════ -->
+<section data-screen="start" data-title="시작">
+  <div class="app-head" data-component="new:AppHeader">
+    <span class="app-mark">개</span>
+    <span class="app-name">개인정보 문서 작성 도우미</span>
+  </div>
+
+  <h1>어떤 문서를 만드시겠어요?</h1>
+  <p class="lede">
+    서비스에 필요한 개인정보 수집·이용 동의서와 개인정보 처리방침을 함께 만듭니다.
+    항목을 고르면 필요한 동의서가 자동으로 정해지고, 두 문서의 내용이 서로 어긋나지 않게 맞춰집니다.
+  </p>
+
+  <div class="choices">
+    <a class="choice" href="#service-info" data-component="Card">
+      <span class="choice-title">신규 서비스 문서 만들기</span>
+      <span class="choice-text">
+        처음 준비하는 서비스입니다. 수집할 항목과 협력업체를 고르면
+        동의서와 처리방침 초안을 새로 만듭니다.
+      </span>
+      <span class="choice-cta">시작하기 →</span>
+    </a>
+
+    <div class="choice" aria-disabled="true" data-component="Card">
+      <span class="choice-title">
+        기존 문서 개정하기
+        <span class="badge badge-outline">준비 중</span>
+      </span>
+      <span class="choice-text">
+        이미 만들어 둔 문서의 내용을 고쳐 새 버전을 만듭니다.
+        지금은 이 도구로 만든 문서만 열 수 있도록 준비하고 있습니다.
+      </span>
+      <span class="choice-cta">곧 열립니다</span>
+    </div>
+  </div>
+
+  <div class="alert alert-info" data-component="Alert">
+    <span class="alert-icon">i</span>
+    <span class="alert-body">
+      만들어진 문서는 법무 검토를 받은 뒤 사이트에 등록하세요.
+      이 도구는 검토에 보낼 수 있는 상태까지 문서를 완성합니다.
+    </span>
+  </div>
+</section>
+
+<!-- ═══════════ 서비스 정보 ═══════════ -->
+<section data-screen="service-info" data-title="서비스 정보">
+  <div class="app-head" data-component="new:AppHeader">
+    <span class="app-mark">개</span>
+    <span class="app-name">개인정보 문서 작성 도우미</span>
+    <span class="app-ctx">신규 서비스 문서</span>
+  </div>
+
+  <nav class="steps" data-component="new:Stepper">
+    <a class="step" href="#service-info" aria-current="step"><span class="step-n">1</span>서비스 정보</a>
+    <a class="step" href="#purpose-groups"><span class="step-n">2</span>수집 항목과 목적</a>
+    <a class="step" href="#sharing"><span class="step-n">3</span>위탁과 제3자 제공</a>
+    <a class="step" href="#result"><span class="step-n">4</span>문서 확인</a>
+  </nav>
+
+  <h1>서비스 정보</h1>
+  <p class="lede">문서의 앞머리와 문의처에 들어가는 내용입니다.</p>
+
+  <div class="card" data-component="Card">
+    <div class="card-head"><h2>서비스</h2></div>
+    <p class="card-sub">문서 전체에서 이 서비스의 이름으로 쓰입니다.</p>
+
+    <div class="field" data-component="Field">
+      <label class="field-label" for="svc-name">서비스명 <span class="field-req">필수</span></label>
+      <input type="text" id="svc-name" value="LG 홈케어 멤버십">
+      <p class="field-help">이용자에게 보이는 정식 이름을 적으세요. 사내 과제명이나 코드명은 쓰지 않습니다.</p>
+    </div>
+
+    <div class="field" data-component="Field">
+      <label class="field-label" for="svc-desc">서비스 한 줄 설명 <span class="field-opt">선택</span></label>
+      <input type="text" id="svc-desc" value="가전 제품 방문 케어 예약과 멤버십 혜택을 제공하는 모바일 앱 서비스">
+    </div>
+
+    <div class="field" data-component="Field">
+      <label class="field-label" for="svc-effective">개인정보 처리방침 시행일 <span class="field-opt">선택</span></label>
+      <input type="date" id="svc-effective" data-effective>
+      <p class="field-help">
+        처리방침 맨 끝에 "본 개인정보 처리방침은 ○○○○년 ○월 ○일부터 시행합니다"로 들어갑니다.
+        비우면 <b data-default-effective></b>로 잡힙니다. 오늘부터 2주 뒤이며, 이용자에게 미리 알릴 시간을 두기 위한 기본값입니다.
+      </p>
+    </div>
+  </div>
+
+  <div class="card" data-component="Card">
+    <div class="card-head"><h2>운영 부서와 담당자</h2></div>
+    <p class="card-sub">처리방침의 문의처와 열람 청구 접수 부서로 들어갑니다.</p>
+
+    <div class="field" data-component="Field">
+      <label class="field-label" for="svc-dept">운영 부서 <span class="field-req">필수</span></label>
+      <input type="text" id="svc-dept" value="H&amp;A사업본부 홈케어서비스담당">
+    </div>
+
+    <div class="field-row">
+      <div class="field" data-component="Field">
+        <label class="field-label" for="svc-owner">담당자 이름 <span class="field-req">필수</span></label>
+        <input type="text" id="svc-owner" value="김서연">
+      </div>
+      <div class="field" data-component="Field">
+        <label class="field-label" for="svc-tel">대표 전화번호 <span class="field-opt">선택</span></label>
+        <input type="text" id="svc-tel" value="02-6915-2384">
+        <p class="field-help">비워두면 회사 대표 번호가 들어갑니다.</p>
+      </div>
+    </div>
+
+    <div class="field" data-component="Field">
+      <label class="field-label" for="svc-mail">대표 이메일 <span class="field-req">필수</span></label>
+      <input type="email" id="svc-mail" value="homecare.privacy@lge.com">
+      <p class="field-help">개인 이메일이 아니라 부서에서 함께 받는 대표 주소를 적으세요. 담당자가 바뀌어도 문의가 끊기지 않습니다.</p>
+    </div>
+  </div>
+
+  <div class="card card-muted" data-component="Card">
+    <div class="card-head">
+      <h2>회사 정보</h2>
+      <span class="badge badge-outline">고정</span>
+    </div>
+    <p class="card-sub">모든 문서에 같은 값이 들어갑니다. 입력할 필요가 없습니다.</p>
+
+    <div class="field-row">
+      <div class="field" data-component="Field">
+        <label class="field-label">법인명</label>
+        <input type="text" value="LG전자 주식회사" readonly>
+      </div>
+      <div class="field" data-component="Field">
+        <label class="field-label">사업자등록번호</label>
+        <input type="text" value="107-86-14075" readonly>
+      </div>
+    </div>
+    <div class="field" data-component="Field">
+      <label class="field-label">주소</label>
+      <input type="text" value="서울특별시 영등포구 여의대로 128 LG트윈타워" readonly>
+    </div>
+    <div class="field" data-component="Field">
+      <label class="field-label">개인정보 보호책임자</label>
+      <input type="text" value="LG전자 정보보호담당" readonly>
+    </div>
+    <p class="hint" style="margin-top:14px">이 값을 바꿔야 한다면 개인정보보호 담당 부서에 문의하세요.</p>
+  </div>
+
+  <div class="nav">
+    <p class="nav-note">입력한 내용은 저장해야 다음 단계로 넘어갑니다. 저장한 뒤에도 언제든 돌아와 고칠 수 있습니다.</p>
+    <a class="btn btn-ghost" href="#start">← 처음으로</a>
+    <span class="nav-spacer"></span>
+    <button class="btn btn-primary" data-action="save-next" data-next="purpose-groups" data-label="서비스 정보">
+      저장하고 다음으로 →
+    </button>
+  </div>
+</section>
+
+<!-- ═══════════ 수집 항목과 목적 ═══════════ -->
+<section data-screen="purpose-groups" data-title="수집 항목과 목적" data-states="목적 없음">
+  <div class="app-head" data-component="new:AppHeader">
+    <span class="app-mark">개</span>
+    <span class="app-name">개인정보 문서 작성 도우미</span>
+    <span class="app-ctx"><strong>LG 홈케어 멤버십</strong></span>
+  </div>
+
+  <nav class="steps" data-component="new:Stepper">
+    <a class="step" href="#service-info" data-done><span class="step-n">✓</span>서비스 정보</a>
+    <a class="step" href="#purpose-groups" aria-current="step"><span class="step-n">2</span>수집 항목과 목적</a>
+    <a class="step" href="#sharing"><span class="step-n">3</span>위탁과 제3자 제공</a>
+    <a class="step" href="#result"><span class="step-n">4</span>문서 확인</a>
+  </nav>
+
+  <div class="page-head">
+    <h1>수집 항목과 처리 목적</h1>
+    <div class="summary-inline" data-when="Default">
+      <span>처리 목적 <b data-out="group-count">1</b>개</span><span>수집 항목 <b data-out="item-count">4</b>개</span><br>
+      <span>만들어질 동의서 <b data-out="consent-summary">필수 1건</b></span>
+    </div>
+  </div>
+  <p class="lede">
+    먼저 개인정보를 왜 받는지 고르면, 그 목적에 흔히 쓰이는 항목이 아래에 나타납니다.
+    목적 하나에 항목과 보유 기간이 딸리고, 목적이 여러 개라면 아래에서 추가하세요.
+  </p>
+
+  <div class="empty" data-when="목적 없음" data-component="Empty">
+    <p class="empty-title">아직 추가한 목적이 없습니다</p>
+    <p class="empty-text">
+      이 서비스가 개인정보를 왜 받아야 하는지부터 정합니다.
+      회원 가입을 받는다면 "회원 가입 및 본인 확인"이 첫 목적이 됩니다.
+    </p>
+    <button class="btn btn-primary" data-action="seed">목적 추가하기</button>
+  </div>
+
+  <div data-when="Default">
+    <div id="group-list"></div>
+
+    <button class="btn btn-dashed" data-action="add-group">＋ 처리 목적 추가</button>
+  </div>
+
+  <div class="nav">
+    <a class="btn btn-ghost" href="#service-info">← 서비스 정보</a>
+    <span class="nav-spacer"></span>
+    <button class="btn btn-primary" data-action="save-next" data-next="sharing" data-label="수집 항목과 처리 목적">
+      저장하고 다음으로 →
+    </button>
+  </div>
+</section>
+
+<!-- ═══════════ 위탁과 제3자 제공 ═══════════ -->
+<section data-screen="sharing" data-title="위탁과 제3자 제공" data-states="둘 다 없음">
+  <div class="app-head" data-component="new:AppHeader">
+    <span class="app-mark">개</span>
+    <span class="app-name">개인정보 문서 작성 도우미</span>
+    <span class="app-ctx"><strong>LG 홈케어 멤버십</strong></span>
+  </div>
+
+  <nav class="steps" data-component="new:Stepper">
+    <a class="step" href="#service-info" data-done><span class="step-n">✓</span>서비스 정보</a>
+    <a class="step" href="#purpose-groups" data-done><span class="step-n">✓</span>수집 항목과 목적</a>
+    <a class="step" href="#sharing" aria-current="step"><span class="step-n">3</span>위탁과 제3자 제공</a>
+    <a class="step" href="#result"><span class="step-n">4</span>문서 확인</a>
+  </nav>
+
+  <h1>위탁과 제3자 제공</h1>
+  <p class="lede">
+    개인정보가 우리 회사 밖으로 나가는 경우는 두 가지입니다.
+    둘은 문서에서 다르게 다뤄지고 동의서가 필요한지도 다르므로, 먼저 차이를 확인하세요.
+  </p>
+
+  <div class="compare" data-component="new:CompareCards">
+    <div class="compare-col">
+      <h3>위탁 <span class="badge badge-info">동의서 불필요</span></h3>
+      <p>
+        <strong>우리 일을 대신 시키는 것</strong>입니다.
+        받는 회사는 우리가 시킨 일만 하고, 그 정보를 자기 사업에 쓰지 못합니다.
+      </p>
+      <dl>
+        <dt>문서에서</dt>
+        <dd>처리방침의 위탁 표에 회사명과 맡긴 업무를 적습니다. 별도 동의서는 만들지 않습니다.</dd>
+      </dl>
+      <div class="compare-ex">
+        <b>대표적인 예</b>
+        클라우드를 데이터베이스로 쓰는 경우입니다. AWS나 Google Cloud에 이용자 정보가 저장되면
+        그 사업자가 수탁사입니다. 콜센터 운영, 배송·설치, 알림 문자 발송도 모두 위탁입니다.
+      </div>
+    </div>
+
+    <div class="compare-col">
+      <h3>제3자 제공 <span class="badge badge-warning">동의서 필요</span></h3>
+      <p>
+        <strong>상대 회사가 자기 목적으로 쓰도록 정보를 넘기는 것</strong>입니다.
+        넘긴 뒤에는 그 회사가 자기 책임으로 정보를 다룹니다.
+      </p>
+      <dl>
+        <dt>문서에서</dt>
+        <dd>처리방침에 제공받는 자·목적·항목·기간을 적고, 별도 동의서를 따로 만듭니다.</dd>
+      </dl>
+      <div class="compare-ex">
+        <b>회사 대표 처리방침의 실제 예</b>
+        결제를 위해 카드사에 주문자명과 휴대폰번호를 넘기는 경우, 네이버·Google의 음성 비서로
+        가전을 제어하려고 기기 정보를 넘기는 경우가 제3자 제공입니다.
+      </div>
+    </div>
+  </div>
+
+  <!-- 위탁 -->
+  <div class="card" data-component="Card">
+    <div class="card-head">
+      <h2>위탁하는 업무</h2>
+      <span class="badge badge-info">동의서 불필요</span>
+    </div>
+    <p class="card-sub">회사가 이미 계약한 수탁사 목록에서 고르면 업무 내용까지 함께 들어갑니다.</p>
+
+    <label class="check" data-component="Checkbox" style="margin-bottom:16px">
+      <input type="checkbox" data-action="toggle-no-processor">
+      <span>
+        <strong>위탁하는 업무가 없습니다</strong>
+        <span class="hint" style="display:block;margin-top:3px">
+          클라우드도 쓰지 않고 외부 업체에 맡기는 일이 전혀 없는 경우에만 선택하세요.
+        </span>
+      </span>
+    </label>
+
+    <div data-processor-area>
+      <div class="table-wrap" data-component="Table" data-processor-table hidden>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:34%">위탁받는 자 (수탁사)</th>
+              <th>위탁하는 업무의 내용</th>
+              <th class="cell-actions"></th>
+            </tr>
+          </thead>
+          <tbody data-processor-rows></tbody>
+        </table>
+      </div>
+
+      <div class="empty" data-processor-empty style="padding:28px 20px">
+        <p class="empty-title">추가한 수탁사가 없습니다</p>
+        <p class="empty-text">아래 목록에서 고르거나 직접 입력하세요.</p>
+      </div>
+
+      <h3 style="margin-top:22px">회사가 계약한 수탁사에서 고르기</h3>
+      <div class="vendor-list" data-component="new:VendorPicker" data-vendor-list></div>
+
+      <button class="btn btn-dashed" style="margin-top:12px" data-action="open-processor-form">
+        ＋ 목록에 없는 수탁사 직접 입력
+      </button>
+
+      <div class="inline-form" data-processor-form hidden>
+        <p class="inline-form-title">수탁사 직접 입력</p>
+        <div class="field" data-component="Field">
+          <label class="field-label">위탁받는 자 (수탁사) <span class="field-req">필수</span></label>
+          <input type="text" data-new-name placeholder="예: ㈜하이프라자">
+          <p class="field-help">법인명을 그대로 적으세요. "협력업체 등"처럼 줄여 쓸 수 없습니다.</p>
+        </div>
+        <div class="field" data-component="Field">
+          <label class="field-label">위탁하는 업무의 내용 <span class="field-req">필수</span></label>
+          <input type="text" data-new-work placeholder="예: 예약 알림 문자 및 알림톡 발송">
+        </div>
+        <div class="inline-form-actions">
+          <button class="btn btn-primary btn-sm" data-action="add-processor">추가</button>
+          <button class="btn btn-ghost btn-sm" data-action="close-processor-form">취소</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 제3자 제공 -->
+  <div class="card" data-component="Card">
+    <div class="card-head">
+      <h2>제3자 제공</h2>
+      <span class="badge badge-warning">동의서 필요</span>
+    </div>
+    <p class="card-sub">여기에 하나라도 추가하면 개인정보 제3자 제공 동의서가 따로 만들어집니다.</p>
+
+    <label class="check" data-component="Checkbox" style="margin-bottom:16px">
+      <input type="checkbox" data-action="toggle-no-third" checked>
+      <span>
+        <strong>제3자에게 제공하는 개인정보가 없습니다</strong>
+        <span class="hint" style="display:block;margin-top:3px">
+          외부 회사가 우리 정보를 자기 목적으로 쓰는 경우가 없다면 이대로 두세요.
+        </span>
+      </span>
+    </label>
+
+    <div data-third-area class="is-off">
+      <div class="table-wrap" data-component="Table" data-third-table hidden>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:20%">제공받는 자</th>
+              <th style="width:22%">제공 목적</th>
+              <th style="width:24%">제공 항목</th>
+              <th>보유 및 이용기간</th>
+              <th class="cell-actions"></th>
+            </tr>
+          </thead>
+          <tbody data-third-rows></tbody>
+        </table>
+      </div>
+
+      <div class="empty" data-third-empty style="padding:28px 20px">
+        <p class="empty-title">추가한 제3자 제공이 없습니다</p>
+        <p class="empty-text">회사 대표 처리방침의 실제 사례에서 고르거나 직접 입력하세요.</p>
+      </div>
+
+      <div class="alert alert-warning" style="margin-top:14px">
+        <span class="alert-icon">!</span>
+        <span class="alert-body">
+          <span class="alert-title">네 가지를 모두 적어야 합니다</span>
+          제3자 제공은 제공받는 자, 제공 목적, 제공 항목, 보유 및 이용기간을 빠짐없이 적어야 합니다.
+          하나라도 비면 동의서와 처리방침이 법에서 요구하는 형식을 채우지 못합니다.
+        </span>
+      </div>
+
+      <h3 style="margin-top:22px">회사 대표 처리방침의 사례에서 고르기</h3>
+      <div class="vendor-list" data-component="new:VendorPicker" data-third-list></div>
+
+      <button class="btn btn-dashed" style="margin-top:12px" data-action="open-third-form">
+        ＋ 목록에 없는 제공처 직접 입력
+      </button>
+
+      <div class="inline-form" data-third-form hidden>
+        <p class="inline-form-title">제3자 제공 직접 입력</p>
+        <div class="field" data-component="Field">
+          <label class="field-label">제공받는 자 <span class="field-req">필수</span></label>
+          <input type="text" data-new-name placeholder="예: ㈜카카오">
+          <p class="field-help">법인명을 그대로 적으세요.</p>
+        </div>
+        <div class="field" data-component="Field">
+          <label class="field-label">제공 목적 <span class="field-req">필수</span></label>
+          <input type="text" data-new-purpose placeholder="예: 알림톡 발송을 위한 회원 식별">
+        </div>
+        <div class="field" data-component="Field">
+          <label class="field-label">제공 항목 <span class="field-req">필수</span></label>
+          <input type="text" data-new-items placeholder="예: 이름, 휴대전화번호">
+          <p class="field-help">"~등"으로 줄이지 말고 넘기는 항목을 모두 적으세요.</p>
+        </div>
+        <div class="field" data-component="Field">
+          <label class="field-label">보유 및 이용기간 <span class="field-req">필수</span></label>
+          <input type="text" data-new-retention placeholder="예: 제공 목적 달성 시까지">
+        </div>
+        <div class="inline-form-actions">
+          <button class="btn btn-primary btn-sm" data-action="add-third">추가</button>
+          <button class="btn btn-ghost btn-sm" data-action="close-third-form">취소</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="alert alert-info">
+    <span class="alert-icon">i</span>
+    <span class="alert-body">
+      <span class="alert-title">회사 이름은 줄여 쓸 수 없습니다</span>
+      "협력업체 등"처럼 뭉뚱그리면 안 되고 법인명을 그대로 모두 적어야 합니다.
+      이용자가 어느 회사가 자기 정보를 다루는지 알 수 있어야 하기 때문입니다.
+    </span>
+  </div>
+
+  <div class="nav">
+    <a class="btn btn-ghost" href="#purpose-groups">← 수집 항목과 목적</a>
+    <span class="nav-spacer"></span>
+    <button class="btn btn-primary" data-action="save-next" data-next="result" data-label="위탁과 제3자 제공">
+      저장하고 문서 만들기 →
+    </button>
+  </div>
+</section>
+
+<!-- ═══════════ 문서 확인 ═══════════ -->
+<section data-screen="result" data-title="문서 확인">
+  <div class="app-head" data-component="new:AppHeader">
+    <span class="app-mark">개</span>
+    <span class="app-name">개인정보 문서 작성 도우미</span>
+    <span class="app-ctx"><strong>LG 홈케어 멤버십</strong></span>
+  </div>
+
+  <nav class="steps" data-component="new:Stepper">
+    <a class="step" href="#service-info" data-done><span class="step-n">✓</span>서비스 정보</a>
+    <a class="step" href="#purpose-groups" data-done><span class="step-n">✓</span>수집 항목과 목적</a>
+    <a class="step" href="#sharing" data-done><span class="step-n">✓</span>위탁과 제3자 제공</a>
+    <a class="step" href="#result" aria-current="step"><span class="step-n">4</span>문서 확인</a>
+  </nav>
+
+  <h1>만들어진 문서</h1>
+  <p class="lede">입력한 내용으로 문서가 만들어졌습니다. 확인하고 내려받아 법무 검토를 받으세요.</p>
+
+  <div class="card" data-component="Card">
+    <div class="card-head"><h2>문서 목록</h2></div>
+    <p class="card-sub">선택한 항목에 따라 필요한 동의서가 정해졌습니다.</p>
+    <div>
+      <div class="doclist-item">
+        <span class="badge badge-primary">필수</span>
+        <span class="doclist-name">개인정보 수집·이용 동의서</span>
+        <span class="doclist-meta">목적 2개 · 항목 7개</span>
+      </div>
+      <div class="doclist-item">
+        <span class="badge badge-optional">선택</span>
+        <span class="doclist-name">개인정보 수집·이용 동의서</span>
+        <span class="doclist-meta">목적 1개 · 항목 1개</span>
+      </div>
+      <div class="doclist-item">
+        <span class="badge badge-info">게시용</span>
+        <span class="doclist-name">개인정보 처리방침</span>
+        <span class="doclist-meta">12개 항목 작성</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabs-row">
+    <div class="tabs" role="tablist" data-component="Tabs">
+      <button class="tab" role="tab" aria-selected="true" data-doc="consent-required">동의서 (필수)</button>
+      <button class="tab" role="tab" aria-selected="false" data-doc="consent-optional">동의서 (선택)</button>
+      <button class="tab" role="tab" aria-selected="false" data-doc="policy">개인정보 처리방침</button>
+    </div>
+    <div class="tabs-actions">
+      <button class="btn btn-outline btn-sm" data-action="download-one">이 문서만 내려받기</button>
+      <button class="btn btn-primary btn-sm" data-action="download-all">모두 내려받기</button>
+    </div>
+  </div>
+
+  <div class="doc" role="tabpanel" data-panel="consent-required">
+    <p class="doc-title">개인정보 수집 및 이용 동의서</p>
+    <p>
+      LG전자 주식회사(이하 "당사")는 <span class="doc-em">LG 홈케어 멤버십</span> 서비스를 이용하는 경우
+      아래와 같이 개인정보를 수집 및 이용하고자 합니다. "이용자"는 LG 홈케어 멤버십 서비스에 게시된
+      "개인정보 처리방침"에서 보다 상세한 내용을 확인하실 수 있습니다.
+    </p>
+
+    <h4>개인정보 수집 및 이용 내역</h4>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:30%">수집 및 이용 목적</th>
+          <th style="width:42%">수집 항목</th>
+          <th>보유 및 이용 기간</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>회원 가입 및 본인 확인</td>
+          <td>이름, 휴대전화번호, 이메일, 생년월일</td>
+          <td>회원 탈퇴 시까지</td>
+        </tr>
+        <tr>
+          <td>서비스 제공 및 계약 이행</td>
+          <td>주소, 보유 제품 모델명, 방문 희망 일시</td>
+          <td>서비스 이용 종료 후 3년까지</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>
+      위의 개인정보 수집 및 이용에 대한 동의를 거부할 권리가 있습니다.
+      그러나 동의를 거부할 경우 LG 홈케어 멤버십 서비스 이용에 제한을 받을 수 있습니다.
+    </p>
+
+    <div class="doc-consent">
+      <span class="doc-consent-q">위와 같이 개인정보를 수집 및 이용하는데 동의하십니까?</span>
+      <span class="doc-box">동의함</span>
+      <span class="doc-box">동의하지 않음</span>
+    </div>
+  </div>
+
+  <div class="doc" role="tabpanel" data-panel="consent-optional" hidden>
+    <p class="doc-title">개인정보 수집 및 이용 동의서 (선택)</p>
+    <p>
+      LG전자 주식회사(이하 "당사")는 <span class="doc-em">LG 홈케어 멤버십</span> 서비스와 관련하여
+      아래와 같이 개인정보를 수집 및 이용하고자 합니다.
+      본 동의는 서비스 이용에 필수적인 동의가 아니므로, 동의를 거부하시더라도 서비스 이용이 가능합니다.
+    </p>
+
+    <h4>개인정보 수집 및 이용 내역</h4>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:30%">수집 및 이용 목적</th>
+          <th style="width:42%">수집 항목</th>
+          <th>보유 및 이용 기간</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>서비스 이용 분석 및 개선</td>
+          <td>설문 응답 내용</td>
+          <td>수집일로부터 1년까지</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>
+      귀하는 위 정보에 대한 수집·이용 동의를 거부할 수 있는 권리가 있으나,
+      이에 동의하지 않을 경우 만족도 조사 참여 및 관련 혜택이 제한될 수 있습니다.
+    </p>
+
+    <div class="doc-consent">
+      <span class="doc-consent-q">위와 같이 개인정보를 수집 및 이용하는데 동의하십니까?</span>
+      <span class="doc-box">동의함</span>
+      <span class="doc-box">동의하지 않음</span>
+    </div>
+  </div>
+
+  <div class="doc" role="tabpanel" data-panel="policy" hidden>
+    <p class="doc-title">개인정보 처리방침</p>
+    <p>
+      LG전자 주식회사(이하 "회사")는 회사가 제공하는 <span class="doc-em">LG 홈케어 멤버십</span>
+      서비스(이하 "서비스")를 이용하는 이용자님의 개인정보를 보호하기 위하여 「개인정보 보호법」 등
+      관련 법령상의 개인정보 보호 규정을 준수하고 있으며, 「개인정보 보호법」 제30조에 따라
+      정보주체에게 개인정보 처리에 관한 절차 및 기준을 안내하고, 이와 관련한 고충을 신속하고 원활하게
+      처리할 수 있도록 하기 위하여 다음과 같이 개인정보 처리방침을 수립·공개합니다.
+    </p>
+
+    <p class="doc-date">시행일: <span data-effective-out>2026년 10월 1일</span></p>
+
+    <div class="doc-toc">
+      <ol>
+        <li><a href="#" data-goto="sec-1">개인정보의 처리목적, 처리 항목, 보유 및 이용 기간</a></li>
+        <li><a href="#" data-goto="sec-2">개인정보의 제3자 제공에 관한 사항</a></li>
+        <li><a href="#" data-goto="sec-3">개인정보 처리 업무의 위탁에 관한 사항</a></li>
+        <li><a href="#" data-goto="sec-4">개인정보의 추가적인 이용·제공 판단 기준</a></li>
+        <li><a href="#" data-goto="sec-5">개인정보의 국외이전</a></li>
+        <li><a href="#" data-goto="sec-6">개인정보 파기 절차 및 방법에 관한 사항</a></li>
+        <li><a href="#" data-goto="sec-7">개인정보의 안전성 확보 조치에 관한 사항</a></li>
+        <li><a href="#" data-goto="sec-8">정보주체와 법정대리인의 권리·의무 및 행사 방법</a></li>
+        <li><a href="#" data-goto="sec-9">개인정보 자동 수집의 목적 및 거부에 관한 사항</a></li>
+        <li><a href="#" data-goto="sec-10">개인정보 보호책임자 및 열람 청구 접수·처리 부서</a></li>
+        <li><a href="#" data-goto="sec-11">권익침해 구제 방법</a></li>
+        <li><a href="#" data-goto="sec-12">개인정보 처리방침의 변경에 관한 사항</a></li>
+      </ol>
+    </div>
+
+    <h4 data-sec="sec-1">1. 개인정보의 처리목적, 처리 항목, 보유 및 이용 기간</h4>
+    <p>
+      회사는 다음의 개인정보 항목을 개인정보 보호법 제15조 제1항 제1호, 제22조 제1항 제1호에 따라
+      정보주체의 동의를 받아 처리하고 있습니다.
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:12%">필수/선택</th>
+          <th style="width:26%">목적</th>
+          <th style="width:36%">수집하는 개인정보 항목</th>
+          <th>보유 및 이용기간</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>필수</td>
+          <td>회원 가입 및 본인 확인</td>
+          <td>이름, 휴대전화번호, 이메일, 생년월일</td>
+          <td>회원 탈퇴 시까지</td>
+        </tr>
+        <tr>
+          <td>필수</td>
+          <td>서비스 제공 및 계약 이행</td>
+          <td>주소, 보유 제품 모델명, 방문 희망 일시</td>
+          <td>서비스 이용 종료 후 3년까지</td>
+        </tr>
+        <tr>
+          <td>선택</td>
+          <td>서비스 이용 분석 및 개선</td>
+          <td>설문 응답 내용</td>
+          <td>수집일로부터 1년까지</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h4>1-1) 관계 법령에 따른 보유 및 이용 기간</h4>
+    <p>회사는 관계 법령의 규정에 해당하는 경우 아래와 같이 개인정보를 보존합니다.</p>
+    <table>
+      <thead>
+        <tr><th style="width:56%">보존 대상</th><th>보존 기간 및 근거</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>계약 또는 청약철회 등에 관한 기록</td>
+          <td>5년 (전자상거래 등에서의 소비자보호에 관한 법률)</td>
+        </tr>
+        <tr>
+          <td>이용자의 인터넷 등 로그 기록, 접속지 추적 자료</td>
+          <td>3개월 (통신비밀보호법)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h4 data-sec="sec-2">2. 개인정보의 제3자 제공에 관한 사항</h4>
+    <p>
+      회사는 정보주체의 개인정보를 개인정보의 처리 목적에서 명시한 범위 내에서만 처리하며,
+      정보주체의 동의, 법률의 특별한 규정 등 개인정보 보호법 제17조 및 제18조에 해당하는 경우에만
+      개인정보를 제3자에게 제공하고 그 이외에는 정보주체의 개인정보를 제3자에게 제공하지 않습니다.
+    </p>
+
+    <h4 data-sec="sec-3">3. 개인정보 처리 업무의 위탁에 관한 사항</h4>
+    <p>
+      회사는 보다 나은 서비스 제공과 이용자 편의 제공 등 업무 수행을 원활하게 하기 위하여
+      이용자의 개인정보 처리를 제3자에게 위탁할 수 있습니다.
+      회사는 위탁계약 체결 시 「개인정보 보호법」 제26조에 따라 위탁업무 수행목적 외 개인정보 처리금지,
+      기술적·관리적 보호조치, 재위탁 제한, 수탁자에 대한 관리·감독, 손해배상 등 책임에 관한 사항을
+      계약서 등 문서에 명시하고, 수탁자가 개인정보를 안전하게 처리하는지를 감독하고 있습니다.
+    </p>
+    <table>
+      <thead>
+        <tr><th style="width:40%">위탁 받는 자 (수탁자)</th><th>위탁 업무 내용</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Amazon Web Services Inc.</td>
+          <td>인프라 제공</td>
+        </tr>
+        <tr>
+          <td>㈜하이케어솔루션</td>
+          <td>구매 제품 설치, 구독 제품 유지보수 및 방문서비스</td>
+        </tr>
+        <tr>
+          <td>인포빕</td>
+          <td>메시지 발송</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h4 data-sec="sec-4">4. 개인정보의 추가적인 이용·제공 판단 기준</h4>
+    <p>
+      회사는 개인정보 보호법 제15조 제3항 및 제17조 제4항에 따라, 당초 수집 목적과의 관련성,
+      처리 관행에 비춘 예측 가능성, 정보주체의 이익 침해 여부, 가명처리 또는 암호화 등
+      안전성 확보 조치 여부를 고려한 후에만 정보주체의 동의 없이 개인정보를 추가적으로 이용·제공합니다.
+    </p>
+
+    <h4 data-sec="sec-5">5. 개인정보의 국외이전</h4>
+    <p>회사는 이용자의 정보를 국외로 이전하지 않습니다.</p>
+
+    <h4 data-sec="sec-6">6. 개인정보 파기 절차 및 방법에 관한 사항</h4>
+    <p>
+      회사는 이용자의 개인정보를 수집 및 이용목적이 달성되면 지체 없이 파기합니다.
+      종이에 출력된 개인정보는 분쇄기로 분쇄하거나 소각을 통하여 파기하고, 전자적 파일형태로 저장된
+      개인정보는 기록을 재생할 수 없는 기술적 방법을 사용하여 삭제합니다.
+    </p>
+
+    <h4 data-sec="sec-7">7. 개인정보의 안전성 확보 조치에 관한 사항</h4>
+    <p>
+      회사는 개인정보처리시스템의 접근 권한 관리와 접근 통제, 접속 기록 보관, 개인정보의 암호화 등
+      기술적 조치와, 내부관리계획 수립·시행 및 취급 직원 정기 교육 등 관리적 조치,
+      전산실과 자료 보관실의 출입통제 등 물리적 조치를 시행하고 있습니다.
+    </p>
+
+    <h4 data-sec="sec-8">8. 정보주체와 법정대리인의 권리·의무 및 행사 방법</h4>
+    <p>
+      이용자 및 법정대리인은 언제든지 자신의 개인정보를 열람하거나 정정할 수 있고 삭제 및 처리 정지를
+      요구할 수 있으며, 수집·이용·제공에 대한 동의를 철회할 수 있습니다.
+      아래 10번의 연락처로 서면 또는 전자우편으로 요청하시면 지체 없이 조치하겠습니다.
+    </p>
+
+    <h4 data-sec="sec-9">9. 개인정보 자동 수집의 목적 및 거부에 관한 사항</h4>
+    <p>회사는 이용자의 이용 정보를 저장하고 수시로 불러오는 '쿠키(cookie)'를 사용하지 않습니다.</p>
+
+    <h4 data-sec="sec-10">10. 개인정보 보호책임자 및 열람 청구를 접수·처리하는 부서</h4>
+    <p>
+      개인정보 보호책임자: LG전자 정보보호담당<br>
+      개인정보 운영책임자: <span class="doc-em">H&amp;A사업본부 홈케어서비스담당</span><br>
+      전화번호: <span class="doc-em">02-6915-2384</span><br>
+      이메일 주소: <span class="doc-em">homecare.privacy@lge.com</span>
+    </p>
+
+    <h4 data-sec="sec-11">11. 권익침해 구제 방법</h4>
+    <p>
+      개인정보분쟁조정위원회: (국번없이) 1833-6972 (www.kopico.go.kr)<br>
+      개인정보침해신고센터: (국번없이) 118 (privacy.kisa.or.kr)<br>
+      대검찰청: (국번없이) 1301 (www.spo.go.kr)<br>
+      경찰청: (국번없이) 182 (ecrm.police.go.kr)
+    </p>
+
+    <h4 data-sec="sec-12">12. 개인정보 처리방침의 변경에 관한 사항</h4>
+    <p>
+      본 개인정보 처리방침은 <span class="doc-em" data-effective-out>2026년 10월 1일</span>부터 시행합니다.
+    </p>
+  </div>
+
+  <div class="nav">
+    <a class="btn btn-ghost" href="#sharing">← 위탁과 제3자 제공</a>
+    <span class="nav-spacer"></span>
+    <button class="btn btn-outline" data-action="restart">처음부터 다시</button>
+  </div>
+
+  <div class="alert alert-info" style="margin-top:16px">
+    <span class="alert-icon">i</span>
+    <span class="alert-body">
+      <span class="alert-title">Word 내려받기와 사내 저장은 준비 중입니다</span>
+      지금은 Markdown으로만 내려받을 수 있습니다.
+      법무 검토용 Word 파일과 사내 공용 저장소에 버전을 쌓는 기능은 다음 단계에서 열립니다.
+    </span>
+  </div>
+</section>
+
+<div class="toast" data-toast role="status" aria-live="polite"></div>
+
+</main>
+
+<script>
+  const stage = document.querySelector('.sh-stage');
+  const screens = [...stage.querySelectorAll('[data-screen]')];
+  const screenSelect = document.getElementById('sh-screen');
+  const stateSelect = document.getElementById('sh-state');
+  const vpBtn = document.getElementById('sh-vp');
+  const themeCtl = document.getElementById('sh-theme');
+  const themeBtns = [...themeCtl.querySelectorAll('button')];
+  let current = null;
+  let currentStates = [];
+
+  screens.forEach(s => {
+    const option = document.createElement('option');
+    option.textContent = s.dataset.title || s.dataset.screen;
+    option.value = s.dataset.screen;
+    screenSelect.append(option);
+  });
+  screenSelect.onchange = () => show(screenSelect.value);
+
+  function show(slug) {
+    current = screens.find(s => s.dataset.screen === slug) || screens[0];
+    screens.forEach(s => s.hidden = s !== current);
+    screenSelect.value = current.dataset.screen;
+    history.replaceState(null, '', '#' + current.dataset.screen);
+    buildStates();
+  }
+
+  function buildStates() {
+    const declared = (current.dataset.states || '').split(',').map(x => x.trim()).filter(Boolean);
+    currentStates = ['Default', ...declared.filter(name => name !== 'Default')];
+    stateSelect.innerHTML = '';
+    currentStates.forEach(name => {
+      const option = document.createElement('option');
+      option.textContent = name;
+      option.value = name;
+      stateSelect.append(option);
+    });
+    applyState('Default');
+  }
+
+  function applyState(name) {
+    const active = currentStates.includes(name) ? name : 'Default';
+    current.querySelectorAll('[data-when]').forEach(el => {
+      el.hidden = !el.dataset.when.split(',').map(x => x.trim()).includes(active);
+    });
+    stateSelect.value = active;
+  }
+  stateSelect.onchange = () => applyState(stateSelect.value);
+
+  window.prototypeShell = {
+    showScreen: show,
+    setState: applyState,
+    getScreen: () => current?.dataset.screen,
+    getState: () => stateSelect.value
+  };
+
+  const VPS = ['full', '390', '768'];
+  let vp = VPS.find(v => document.body.classList.contains('sh-vp-' + v)) || 'full';
+  function applyVp() {
+    VPS.forEach(v => document.body.classList.toggle('sh-vp-' + v, v === vp && v !== 'full'));
+    vpBtn.textContent = 'vp: ' + vp + ' (m)';
+    vpBtn.classList.toggle('on', vp !== 'full');
+  }
+  vpBtn.onclick = () => { vp = VPS[(VPS.indexOf(vp) + 1) % VPS.length]; applyVp(); };
+  applyVp();
+
+  const hasDark = [...document.styleSheets].some(sheet => {
+    try {
+      return [...sheet.cssRules].some(rule => (rule.selectorText || '')
+        .split(',').some(part => /\.sh-theme-dark$/.test(part.trim())));
+    } catch { return false }
+  });
+  let dark = false;
+  function applyTheme() {
+    document.documentElement.classList.toggle('sh-theme-dark', dark);
+    document.body.classList.toggle('sh-theme-dark', dark);
+    themeBtns.forEach(b => b.classList.toggle('on', (b.dataset.theme === 'dark') === dark));
+  }
+  themeCtl.hidden = !hasDark;
+  themeBtns.forEach(b => b.onclick = () => { dark = b.dataset.theme === 'dark'; applyTheme(); });
+  applyTheme();
+
+  addEventListener('keydown', e => {
+    if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+    const i = screens.indexOf(current);
+    if (e.key === 'ArrowRight') show(screens[(i + 1) % screens.length].dataset.screen);
+    if (e.key === 'ArrowLeft') show(screens[(i - 1 + screens.length) % screens.length].dataset.screen);
+    if (e.key === 'm') vpBtn.click();
+    if (e.key === 't' && !themeCtl.hidden) { dark = !dark; applyTheme(); }
+  });
+
+  addEventListener('hashchange', () => show(location.hash.slice(1)));
+
+  /* ══════════ product data ══════════ */
+
+  /* 항목 분류: normal / sensitive(민감정보) / unique(고유식별정보) / rrn(주민등록번호)
+     biometric은 기술적 처리 여부에 따라 민감정보가 되는지 갈린다. */
+  const CATALOG = {
+    basic: {
+      label: '기본 정보',
+      items: ['이름', '휴대전화번호', '이메일', '주소', '생년월일', '성별', '아이디', '비밀번호', '직업']
+    },
+    usage: {
+      label: '서비스 이용 정보',
+      items: ['보유 제품 모델명', '방문 희망 일시', '배송 요청사항', '구매 이력', '거래 내역',
+              '결제 수단 정보', '문의 및 상담 내용', '상담 녹취', '설문 응답 내용']
+    },
+    auto: {
+      label: '자동 수집 정보',
+      items: ['IP 주소', '접속 로그', '기기 식별정보', '광고 식별자', '쿠키', '서비스 이용 기록']
+    },
+    login: {
+      label: '간편인증 연동',
+      note: '연동 사업자로부터 받는 정보 확인',
+      items: ['네이버 로그인', '카카오 로그인', 'Google 계정(Gmail)', 'Apple 로그인', 'MyLG ID', 'PASS 인증'],
+      kind: 'login'
+    },
+    location: {
+      label: '위치정보',
+      note: '위치정보법도 함께 적용',
+      items: ['GPS 좌표(위도·경도)', '기지국 기반 위치', 'Wi-Fi 기반 위치', '이동 경로', '방문 장소 기록', '접속 지역 정보'],
+      kind: 'location'
+    },
+    sensitive: {
+      label: '민감정보',
+      note: '별도 동의서 필요',
+      items: ['건강 상태 및 병력', '진료 및 처방 기록', '노동조합·정당 가입 여부', '사상·신념', '유전정보'],
+      kind: 'sensitive'
+    },
+    biometric: {
+      label: '생체정보',
+      note: '처리 방식에 따라 민감정보',
+      items: ['지문', '얼굴 이미지', '홍채', '음성'],
+      kind: 'biometric'
+    },
+    unique: {
+      label: '고유식별정보',
+      note: '별도 동의서 필요',
+      items: ['여권번호', '운전면허번호', '외국인등록번호', '주민등록번호'],
+      kind: 'unique'
+    }
+  };
+
+  const PURPOSES = [
+    {
+      label: '회원 가입 및 본인 확인',
+      suggest: { basic: ['이름', '휴대전화번호', '이메일', '생년월일', '아이디', '비밀번호'], auto: ['IP 주소', '접속 로그'] },
+      retention: '회원 탈퇴 시까지',
+      laws: []
+    },
+    {
+      label: '서비스 제공 및 계약 이행',
+      suggest: { basic: ['이름', '휴대전화번호', '주소'], usage: ['보유 제품 모델명', '방문 희망 일시', '구매 이력'] },
+      retention: '서비스 이용 종료 후 3년까지',
+      laws: [{ what: '계약 또는 청약철회 등에 관한 기록', term: '5년', law: '전자상거래 등에서의 소비자보호에 관한 법률 제6조' }]
+    },
+    {
+      label: '고객 문의 응대 및 민원 처리',
+      suggest: { basic: ['이름', '휴대전화번호', '이메일'], usage: ['문의 및 상담 내용', '상담 녹취'] },
+      retention: '문의 처리 완료 후 3년까지',
+      laws: [{ what: '소비자 불만 또는 분쟁 처리에 관한 기록', term: '3년', law: '전자상거래 등에서의 소비자보호에 관한 법률 제6조' }]
+    },
+    {
+      label: '요금 결제 및 정산',
+      suggest: { basic: ['이름', '휴대전화번호'], usage: ['결제 수단 정보', '거래 내역'] },
+      retention: '결제 완료 후 5년까지',
+      laws: [{ what: '대금 결제 및 재화 등의 공급에 관한 기록', term: '5년', law: '전자상거래 등에서의 소비자보호에 관한 법률 제6조' }]
+    },
+    {
+      label: '제품 배송 및 설치',
+      suggest: { basic: ['이름', '휴대전화번호', '주소'], usage: ['배송 요청사항', '보유 제품 모델명'] },
+      retention: '배송 완료 후 5년까지',
+      laws: [{ what: '계약 또는 청약철회 등에 관한 기록', term: '5년', law: '전자상거래 등에서의 소비자보호에 관한 법률 제6조' }]
+    },
+    {
+      label: '광고 및 마케팅 활용',
+      suggest: { basic: ['이름', '휴대전화번호', '이메일'], auto: ['광고 식별자', '서비스 이용 기록'] },
+      retention: '동의 철회 시까지',
+      laws: [{ what: '표시 및 광고에 관한 기록', term: '6개월', law: '전자상거래 등에서의 소비자보호에 관한 법률 제6조' }]
+    },
+    {
+      label: '서비스 이용 분석 및 개선',
+      suggest: { usage: ['설문 응답 내용'], auto: ['접속 로그', '기기 식별정보', '광고 식별자'] },
+      retention: '수집일로부터 1년까지',
+      laws: [{ what: '이용자의 인터넷 등 로그 기록, 접속지 추적 자료', term: '3개월', law: '통신비밀보호법 제15조의2' }]
+    }
+  ];
+
+  /* 회사 대표 사이트 처리방침의 실제 수탁사 */
+  const PROCESSORS = [
+    { name: 'Amazon Web Services Inc.', work: '인프라 제공' },
+    { name: 'Google Inc.', work: '인프라 제공, 광고·타겟 마케팅, 광고 이용 행태 분석' },
+    { name: '베스핀글로벌', work: '인프라 및 시스템 운영' },
+    { name: '㈜LG CNS', work: '서비스 운영, 시스템 운영, 결제 및 정산, 챗봇 시스템 관리' },
+    { name: '㈜하이텔레서비스', work: 'LG전자 고객 상담 센터 운영, 고객 응대 및 상담 업무' },
+    { name: '㈜하이케어솔루션', work: '구매 제품 설치, 구독 제품 유지보수 및 방문서비스' },
+    { name: '하이엠솔루텍㈜', work: '구매 제품 설치, 시스템 에어컨 서비스 및 세척, 멤버십 회원 관리' },
+    { name: 'LX판토스', work: '제품 배송/설치, 이전 설치' },
+    { name: 'CJ대한통운㈜', work: '소모품 풀필먼트 운영 및 배송' },
+    { name: '굿스플로', work: '배송정보 출력 서비스, 배송과 반품 정보 전송 서비스' },
+    { name: '인포빕', work: '메시지 발송' },
+    { name: 'NICE평가정보㈜', work: '본인확인이 필요한 서비스 이용 시 본인 확인' },
+    { name: '㈜다날', work: '본인인증' },
+    { name: 'Appsflyer Ltd.', work: '서비스 이용 분석, 광고·타겟 마케팅, 광고 이용 행태 분석' },
+    { name: 'Mixpanel, Inc.', work: '서비스 이용 분석' },
+    { name: '한국마이크로소프트(유)', work: '제품·서비스 개선, 개발을 위한 서비스 이용 분석' }
+  ];
+
+  /* 회사 대표 사이트 처리방침의 실제 제3자 제공 사례
+     제3자 제공은 제공받는 자·제공 목적·제공 항목·보유 및 이용기간을 모두 적어야 한다. */
+  const UNTIL_PURPOSE_DONE = '개인정보 이용 목적 달성 시(서비스 이용 시)까지. 단, 관계 법령에서 일정 기간 정보보관 의무를 부과하는 경우 해당 기간 동안 보유';
+  const THIRD_PARTIES = [
+    { name: '㈜LG유플러스', purpose: '신용카드 결제, 현금영수증 발행', items: '주문자명, 휴대폰번호, 현금영수증 카드번호', retention: UNTIL_PURPOSE_DONE },
+    { name: '네이버 주식회사', purpose: '홈 IoT 기기 모니터링 및 기기 원격 제어 서비스 이용', items: '기기식별정보, 사용자 인증키, 위치정보, 음성 정보', retention: '서비스 이용 시까지' },
+    { name: 'Google', purpose: '홈 IoT 기기 모니터링 및 기기 원격 제어 서비스 이용', items: '이용자 인증키, 기기식별정보, 기기 닉네임, 기기 상태 정보', retention: UNTIL_PURPOSE_DONE },
+    { name: '신한카드, BC카드, 우리카드, 하나카드', purpose: '구독 제휴카드 발급/변경 등록 처리', items: '성명, 휴대폰번호, 생년월일', retention: '카드 발급 및 청약 처리 완료 시까지' },
+    { name: '㈜SK텔레콤, ㈜KT, ㈜LG유플러스', purpose: '앱에 등록된 가전의 제어 서비스 이용', items: '사용자 인증키, 이용자 번호, 기기 ID, 모델명', retention: UNTIL_PURPOSE_DONE },
+    { name: '코콤㈜, 경동나비엔㈜, ㈜코맥스', purpose: '홈 네트워크 서비스의 연동', items: '세대 단지, 세대 동/호수, 홈 네트워크 기기 ID', retention: UNTIL_PURPOSE_DONE }
+  ];
+
+  /* 목록은 가나다·A-Z 순으로 보여준다. ㈜, (주) 같은 앞머리는 정렬에서 빼야 제대로 줄 선다. */
+  function sortKey(name) {
+    return String(name).replace(/[㈜\s]|^\(주\)/g, '');
+  }
+  const byName = (a, b) => sortKey(a.name).localeCompare(sortKey(b.name), 'ko');
+  PROCESSORS.sort(byName);
+  THIRD_PARTIES.sort(byName);
+
+  const RETENTION_SAMPLES = ['회원 탈퇴 시까지', '서비스 이용 종료 후 3년까지', '수집일로부터 1년까지', '목적 달성 후 지체 없이 파기'];
+
+  /* ══════════ helpers ══════════ */
+
+  /* 저장 알림 */
+  let toastTimer = null;
+  function toast(message) {
+    const node = stage.querySelector('[data-toast]');
+    node.textContent = message;
+    node.dataset.show = 'true';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { delete node.dataset.show; }, 2000);
+  }
+
+  /* 저장한 단계는 모든 화면의 단계 표시에서 완료로 바뀐다 */
+  const SAVED = new Set();
+  function markSaved(slug) {
+    SAVED.add(slug);
+    stage.querySelectorAll('.steps .step').forEach(step => {
+      const target = (step.getAttribute('href') || '').slice(1);
+      if (!SAVED.has(target) || step.hasAttribute('aria-current')) return;
+      step.dataset.done = 'true';
+      step.querySelector('.step-n').textContent = '✓';
+    });
+  }
+
+  /* 문서 내려받기: 화면에 보이는 문서를 그대로 Markdown으로 옮긴다 */
+  const DOC_NAMES = {
+    'consent-required': '개인정보_수집이용_동의서_필수',
+    'consent-optional': '개인정보_수집이용_동의서_선택',
+    'policy': '개인정보_처리방침'
+  };
+
+  function docToMarkdown(panel) {
+    const lines = [];
+    panel.childNodes.forEach(node => {
+      if (node.nodeType !== 1) return;
+      const tag = node.tagName;
+      const text = node.textContent.replace(/\s+/g, ' ').trim();
+      if (!text && tag !== 'TABLE') return;
+      if (node.classList.contains('doc-title')) { lines.push('# ' + text, ''); return; }
+      if (node.classList.contains('doc-date')) { lines.push('> ' + text, ''); return; }
+      if (node.classList.contains('doc-toc')) {
+        lines.push('## 목차', '');
+        [...node.querySelectorAll('li')].forEach((li, i) => lines.push((i + 1) + '. ' + li.textContent.trim()));
+        lines.push('');
+        return;
+      }
+      if (tag === 'H4') { lines.push('## ' + text, ''); return; }
+      if (tag === 'TABLE') {
+        const head = [...node.querySelectorAll('thead th')].map(th => th.textContent.trim());
+        if (head.length) {
+          lines.push('| ' + head.join(' | ') + ' |');
+          lines.push('| ' + head.map(() => '---').join(' | ') + ' |');
+        }
+        [...node.querySelectorAll('tbody tr')].forEach(tr => {
+          const cells = [...tr.cells].map(td => td.textContent.replace(/\s+/g, ' ').trim());
+          lines.push('| ' + cells.join(' | ') + ' |');
+        });
+        lines.push('');
+        return;
+      }
+      if (node.classList.contains('doc-consent')) {
+        lines.push(text.replace('동의함 동의하지 않음', ''), '', '- [ ] 동의함', '- [ ] 동의하지 않음', '');
+        return;
+      }
+      lines.push(text, '');
+    });
+    return lines.join('\n');
+  }
+
+  function downloadDoc(key, notify) {
+    const panel = stage.querySelector('[data-panel="' + key + '"]');
+    if (!panel) return;
+    const service = (stage.querySelector('#svc-name').value || '서비스').replace(/\s+/g, '');
+    const blob = new Blob([docToMarkdown(panel)], { type: 'text/markdown;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = service + '_' + DOC_NAMES[key] + '.md';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    if (notify !== false) toast(notify === true ? '문서 3건을 모두 내려받았습니다' : '문서를 내려받았습니다');
+  }
+
+  function topic(word) {
+    const last = String(word).trim().slice(-1);
+    const code = last.charCodeAt(0);
+    if (code < 0xAC00 || code > 0xD7A3) return '은(는)';
+    return (code - 0xAC00) % 28 !== 0 ? '은' : '는';
+  }
+
+  /* 목적격 조사 */
+  function object(word) {
+    const last = String(word).trim().slice(-1);
+    const code = last.charCodeAt(0);
+    if (code < 0xAC00 || code > 0xD7A3) return '을(를)';
+    return (code - 0xAC00) % 28 !== 0 ? '을' : '를';
+  }
+
+  function el(tag, cls, text) {
+    const node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text != null) node.textContent = text;
+    return node;
+  }
+
+  function kindOf(name) {
+    if (name === '주민등록번호') return 'rrn';
+    for (const key of Object.keys(CATALOG)) {
+      const group = CATALOG[key];
+      if (group.items.includes(name)) return group.kind || 'normal';
+    }
+    return 'normal';
+  }
+
+  /* ══════════ purpose groups ══════════ */
+
+  const groupsScreen = stage.querySelector('[data-screen="purpose-groups"]');
+  const groupList = groupsScreen.querySelector('#group-list');
+  let groupSeq = 0;
+
+  function buildGroup(preset) {
+    const id = 'g' + (++groupSeq);
+    const card = el('div', 'card group');
+    card.dataset.group = id;
+    card.dataset.component = 'Card';
+    card.dataset.consent = 'required';
+
+    /* head */
+    const head = el('div', 'group-head');
+    const name = el('span', 'group-name', '새 처리 목적');
+    name.dataset.unset = 'true';
+    head.append(name);
+
+    const seg = el('div', 'seg');
+    seg.setAttribute('role', 'group');
+    seg.setAttribute('aria-label', '동의 구분');
+    seg.dataset.component = 'new:ConsentToggle';
+    [['required', '필수 동의'], ['optional', '선택 동의']].forEach(([value, label], i) => {
+      const b = el('button', null, label);
+      b.type = 'button';
+      b.dataset.consent = value;
+      b.setAttribute('aria-pressed', String(i === 0));
+      seg.append(b);
+    });
+    head.append(seg);
+
+    const actions = el('div', 'group-actions');
+    const del = el('button', 'btn btn-ghost btn-sm', '삭제');
+    del.dataset.action = 'remove-group';
+    actions.append(del);
+    head.append(actions);
+    card.append(head);
+
+    /* 처리 목적 */
+    const purposeField = el('div', 'field');
+    purposeField.dataset.component = 'Field';
+    purposeField.append(Object.assign(el('label', 'field-label'), {
+      innerHTML: '처리 목적 <span class="field-req">필수</span>'
+    }));
+    const purposeOpts = el('div', 'opts');
+    purposeOpts.dataset.purposeOpts = '';
+    PURPOSES.forEach(p => {
+      const b = el('button', 'opt', p.label);
+      b.type = 'button';
+      b.dataset.purpose = p.label;
+      b.setAttribute('aria-pressed', 'false');
+      purposeOpts.append(b);
+    });
+    const customBtn = el('button', 'opt', '＋ 직접 입력');
+    customBtn.type = 'button';
+    customBtn.dataset.action = 'custom-purpose';
+    purposeOpts.append(customBtn);
+    purposeField.append(purposeOpts);
+    const customInput = el('input');
+    customInput.type = 'text';
+    customInput.dataset.customPurpose = '';
+    customInput.placeholder = '이 서비스가 개인정보를 받는 이유를 적으세요';
+    customInput.hidden = true;
+    customInput.style.marginTop = '10px';
+    purposeField.append(customInput);
+    card.append(purposeField);
+
+    /* 수집 항목 */
+    const itemField = el('div', 'field');
+    itemField.dataset.component = 'Field';
+    itemField.append(Object.assign(el('label', 'field-label'), {
+      innerHTML: '수집 항목 <span class="field-req">필수</span>'
+    }));
+    const picked = el('div', 'picked');
+    picked.dataset.picked = '';
+    itemField.append(picked);
+
+    const picker = el('div', 'picker');
+    picker.dataset.picker = '';
+    picker.dataset.component = 'new:ItemPicker';
+    picker.innerHTML = '<div class="picker-lock">먼저 위에서 처리 목적을 고르면 그 목적에 흔히 쓰이는 항목이 여기에 나타납니다.</div>';
+    itemField.append(picker);
+    card.append(itemField);
+
+    /* 만 14세 확인 */
+    const age = el('div', 'followup');
+    age.dataset.age = '';
+    age.hidden = true;
+    card.append(age);
+
+    /* 생체정보 후속 질문 */
+    const bio = el('div', 'followup');
+    bio.dataset.biometric = '';
+    bio.hidden = true;
+    card.append(bio);
+
+    /* 민감정보 / 고유식별정보 안내 */
+    const notice = el('div', 'alert alert-warning');
+    notice.dataset.notice = '';
+    notice.hidden = true;
+    notice.style.marginTop = '14px';
+    card.append(notice);
+
+    /* 위치정보 안내 */
+    const locNotice = el('div', 'alert alert-warning');
+    locNotice.dataset.locationNotice = '';
+    locNotice.hidden = true;
+    locNotice.style.marginTop = '14px';
+    card.append(locNotice);
+
+    /* 간편인증 안내 */
+    const loginNotice = el('div', 'alert alert-info');
+    loginNotice.dataset.loginNotice = '';
+    loginNotice.hidden = true;
+    loginNotice.style.marginTop = '14px';
+    card.append(loginNotice);
+
+    /* 주민등록번호 경고 */
+    const rrn = el('div', 'alert alert-danger');
+    rrn.dataset.rrn = '';
+    rrn.hidden = true;
+    rrn.style.marginTop = '14px';
+    rrn.innerHTML =
+      '<span class="alert-icon">!</span><span class="alert-body">' +
+      '<span class="alert-title">주민등록번호는 법무 검토를 완료해야 사용할 수 있습니다</span>' +
+      '「개인정보 보호법」 제24조의2에 따라 주민등록번호는 법령에 구체적인 근거가 있는 경우에만 수집할 수 있습니다. ' +
+      '정보주체에게 동의를 받았다는 것만으로는 수집할 수 없습니다. ' +
+      '근거 법령을 아래에 적고, 이 문서를 사용하기 전에 반드시 법무 검토를 받으세요. 근거가 없다면 이 항목을 빼야 합니다.' +
+      '</span>';
+    card.append(rrn);
+
+    const rrnField = el('div', 'field');
+    rrnField.dataset.rrnField = '';
+    rrnField.hidden = true;
+    rrnField.style.marginTop = '14px';
+    rrnField.dataset.component = 'Field';
+    rrnField.innerHTML =
+      '<label class="field-label">주민등록번호 수집의 근거 법령 <span class="field-req">필수</span></label>' +
+      '<input type="text" placeholder="예: 「소득세법」 제145조에 따른 원천징수영수증 발급">' +
+      '<p class="field-help">법령의 이름과 조항을 함께 적으세요. 이 내용이 동의서와 처리방침에 그대로 들어가고, 법무 검토에서 가장 먼저 확인하는 부분입니다.</p>';
+    card.append(rrnField);
+
+    /* 보유 및 이용 기간 */
+    const retField = el('div', 'field');
+    retField.dataset.component = 'Field';
+    retField.style.marginTop = '18px';
+    retField.append(Object.assign(el('label', 'field-label'), {
+      innerHTML: '보유 및 이용 기간 <span class="field-req">필수</span>'
+    }));
+    const retInput = el('input');
+    retInput.type = 'text';
+    retInput.dataset.retention = '';
+    retInput.placeholder = '예: 회원 탈퇴 시까지';
+    retField.append(retInput);
+
+    const samples = el('div', 'samples');
+    samples.style.cssText = 'display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;margin-top:8px';
+    samples.append(Object.assign(el('span', null, '예시'), { style: 'font-size:11px;color:var(--muted-foreground)' }));
+    RETENTION_SAMPLES.forEach(s => {
+      const c = el('button', 'opt', s);
+      c.type = 'button';
+      c.dataset.fillRetention = s;
+      samples.append(c);
+    });
+    retField.append(samples);
+
+    /* 관련 법률: 보유 및 이용 기간 아래 */
+    const laws = el('div', 'laws');
+    laws.dataset.laws = '';
+    laws.hidden = true;
+    retField.append(laws);
+    card.append(retField);
+
+    if (preset) applyPreset(card, preset);
+    return card;
+  }
+
+  function applyPreset(card, preset) {
+    const btn = [...card.querySelectorAll('[data-purpose]')].find(b => b.dataset.purpose === preset.purpose);
+    if (btn) { selectPurpose(card, btn); }
+    if (preset.items) {
+      preset.items.forEach(name => {
+        const opt = [...card.querySelectorAll('.picker .opt[data-item]')].find(o => o.dataset.item === name);
+        if (opt) opt.setAttribute('aria-pressed', 'true');
+      });
+      syncItems(card);
+    }
+    if (preset.consent) setConsent(card, preset.consent);
+  }
+
+  function setConsent(card, value) {
+    card.dataset.consent = value;
+    card.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.consent === value)));
+    syncSummary();
+  }
+
+  function selectPurpose(card, btn) {
+    card.querySelectorAll('[data-purpose]').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+    card.querySelector('[data-custom-purpose]').hidden = true;
+    const purpose = PURPOSES.find(p => p.label === btn.dataset.purpose);
+    card.dataset.purposeLabel = btn.dataset.purpose;
+
+    const name = card.querySelector('.group-name');
+    name.textContent = btn.dataset.purpose;
+    delete name.dataset.unset;
+
+    buildPicker(card, purpose);
+
+    /* 자동으로 채운 값은 목적이 바뀌면 새 값으로 갱신하고, 직접 고친 값은 그대로 둔다 */
+    const ret = card.querySelector('[data-retention]');
+    if (!ret.value || ret.dataset.auto === 'true') {
+      ret.value = purpose.retention;
+      ret.dataset.auto = 'true';
+    }
+
+    renderLaws(card, purpose);
+    syncItems(card);
+  }
+
+  function buildPicker(card, purpose) {
+    const picker = card.querySelector('[data-picker]');
+    const chosen = new Set([...card.querySelectorAll('.picker .opt[aria-pressed="true"]')].map(o => o.dataset.item));
+    picker.innerHTML = '';
+
+    const suggested = purpose ? purpose.suggest : {};
+    const suggestedKeys = Object.keys(suggested);
+
+    /* 목적에 맞는 카테고리를 먼저, 추천 항목을 앞에 */
+    ['basic', 'usage', 'auto'].forEach(key => {
+      const group = CATALOG[key];
+      const picks = suggested[key] || [];
+      const isSuggested = suggestedKeys.includes(key);
+      const rest = group.items.filter(i => !picks.includes(i));
+      const section = el('div', 'picker-group');
+
+      const head = el('div', 'picker-group-head');
+      head.append(el('span', null, group.label));
+      if (isSuggested) head.append(Object.assign(el('span', 'picker-group-note', '이 목적에 흔히 쓰는 항목'), {}));
+      section.append(head);
+
+      const items = el('div', 'picker-items');
+      const opts = el('div', 'opts');
+      picks.forEach(name => opts.append(makeOpt(name, chosen, true, card)));
+      rest.forEach(name => {
+        const o = makeOpt(name, chosen, false, card);
+        /* 추천 항목이 아닌 것은 접어 둔다. 이미 고른 것은 보여야 한다. */
+        if (!chosen.has(name)) { o.dataset.extra = 'true'; o.hidden = true; }
+        opts.append(o);
+      });
+      items.append(opts);
+      if (!picks.length && !group.items.some(i => chosen.has(i))) {
+        items.hidden = true;
+        head.append(Object.assign(el('span', 'picker-group-note', '이 목적에는 잘 쓰지 않는 항목'), {}));
+      }
+      section.append(items);
+
+      const hiddenCount = rest.filter(n => !chosen.has(n)).length;
+      if (hiddenCount) {
+        const toggle = el('button', 'picker-toggle', group.label + ' 전체 보기 (' + hiddenCount + '개 더)');
+        toggle.type = 'button';
+        toggle.dataset.action = 'toggle-extra';
+        section.append(toggle);
+      }
+      picker.append(section);
+    });
+
+    /* 아래 항목들은 목적과 무관하게 따로 판단해야 하므로 항상 보인다 */
+    const BADGE = { login: 'badge badge-info', location: 'badge badge-warning', biometric: 'badge badge-info' };
+    ['login', 'location', 'sensitive', 'biometric', 'unique'].forEach(key => {
+      const group = CATALOG[key];
+      const section = el('div', 'picker-group');
+      const head = el('div', 'picker-group-head');
+      head.append(el('span', null, group.label));
+      head.append(el('span', BADGE[key] || 'badge badge-warning', group.note));
+      section.append(head);
+      const items = el('div', 'picker-items');
+      const opts = el('div', 'opts');
+      group.items.forEach(name => opts.append(makeOpt(name, chosen, false, card)));
+      items.append(opts);
+      section.append(items);
+      picker.append(section);
+    });
+
+    /* 직접 입력 */
+    const last = el('div', 'picker-group');
+    const items = el('div', 'picker-items');
+    const addBtn = el('button', 'opt', '＋ 목록에 없는 항목 직접 입력');
+    addBtn.type = 'button';
+    addBtn.dataset.action = 'custom-item';
+    items.append(addBtn);
+    last.append(items);
+    picker.append(last);
+  }
+
+  function makeOpt(name, chosen, suggested, card) {
+    const kind = kindOf(name);
+    const b = el('button', 'opt');
+    b.type = 'button';
+    b.dataset.item = name;
+    if (kind !== 'normal') b.dataset.kind = kind;
+    b.setAttribute('aria-pressed', String(chosen.has(name)));
+    b.append(document.createTextNode(name));
+    if (suggested) b.append(el('span', 'opt-star', '●'));
+    return b;
+  }
+
+  function renderLaws(card, purpose) {
+    const laws = card.querySelector('[data-laws]');
+    if (!purpose || !purpose.laws.length) { laws.hidden = true; return; }
+    laws.hidden = false;
+    laws.innerHTML = '';
+    const head = el('div', 'laws-head');
+    head.append(el('span', null, '이 목적에는 법으로 정해진 보관 의무가 있습니다'));
+    laws.append(head);
+    const ul = el('ul');
+    purpose.laws.forEach(l => {
+      const li = el('li');
+      li.innerHTML = l.what + ': <strong>' + l.term + '</strong> (' + l.law + ')';
+      ul.append(li);
+    });
+    laws.append(ul);
+    const note = el('p', 'hint');
+    note.style.margin = '9px 0 0';
+    note.textContent = '위에 적은 보유 기간과 별개로 문서의 "관계 법령에 따른 보유 및 이용 기간"에 자동으로 들어갑니다.';
+    laws.append(note);
+  }
+
+  /* 선택된 항목 반영 */
+  function syncItems(card) {
+    const picked = card.querySelector('[data-picked]');
+    const chosen = [...card.querySelectorAll('.picker .opt[aria-pressed="true"]')];
+    const customTags = [...picked.querySelectorAll('.tag[data-custom]')].map(t => t.cloneNode(true));
+    picked.innerHTML = '';
+
+    chosen.forEach(opt => {
+      const name = opt.dataset.item;
+      const tag = el('span', 'tag');
+      const kind = kindOf(name);
+      if (kind !== 'normal') tag.dataset.kind = kind === 'biometric' ? '' : kind;
+      tag.append(document.createTextNode(name));
+      const x = el('button', null, '×');
+      x.type = 'button';
+      x.setAttribute('aria-label', name + ' 제거');
+      x.dataset.removeItem = name;
+      tag.append(x);
+      picked.append(tag);
+    });
+    customTags.forEach(t => {
+      t.querySelector('button').dataset.removeCustom = 'true';
+      picked.append(t);
+    });
+
+    syncAge(card, chosen);
+    syncBiometric(card, chosen);
+    syncNotice(card, chosen);
+    syncSummary();
+  }
+
+  /* 생년월일을 받으면 만 14세 미만 아동이 이용하는지 확인해야 한다 */
+  function syncAge(card, chosen) {
+    const hasBirth = chosen.some(o => o.dataset.item === '생년월일');
+    const box = card.querySelector('[data-age]');
+    if (!hasBirth) { box.hidden = true; delete card.dataset.ageChoice; return; }
+
+    const answer = card.dataset.ageChoice || '';
+    box.hidden = false;
+    box.innerHTML = '';
+    box.append(el('div', 'followup-q', '만 14세 미만 아동도 이 서비스를 이용할 수 있나요?'));
+    box.append(el('div', 'followup-help',
+      '생년월일을 받으면 가입자의 나이를 알 수 있습니다. 만 14세 미만 아동의 개인정보를 처리하려면 법정대리인의 동의를 받아야 하고, 동의서와 처리방침에 들어가는 내용이 달라집니다.'));
+
+    const choices = el('div', 'followup-choices');
+    [
+      ['yes', '예, 아동도 이용합니다', '법정대리인 동의서가 별도로 만들어지고, 법정대리인의 이름과 연락처를 받는 항목이 추가됩니다.'],
+      ['no', '아니오, 만 14세 이상만 이용합니다', '가입 단계에서 만 14세 미만을 걸러내야 하며, 이용약관에도 그 기준을 적어야 합니다.']
+    ].forEach(([value, title, desc]) => {
+      const b = el('button', 'followup-choice');
+      b.type = 'button';
+      b.dataset.ageAnswer = value;
+      b.setAttribute('aria-pressed', String(answer === value));
+      b.append(el('b', null, title));
+      b.append(el('span', null, desc));
+      choices.append(b);
+    });
+    box.append(choices);
+
+    if (answer) {
+      const verdict = el('div', 'followup-verdict');
+      verdict.innerHTML = answer === 'yes'
+        ? '<strong>만 14세 미만 아동용 동의서가 추가됩니다.</strong> 아동이 이해할 수 있는 쉬운 표현으로 쓰이고, 법정대리인의 이름과 연락처를 받는 항목이 함께 들어갑니다.'
+        : '<strong>만 14세 이상만 가입할 수 있다는 내용이 문서에 들어갑니다.</strong> 가입 화면에서 나이를 확인해 걸러내는 절차가 실제로 있어야 합니다.';
+      box.append(verdict);
+    }
+  }
+
+  /* 생체정보: 기술적으로 처리·저장하는지에 따라 민감정보 여부가 갈린다 */
+  function syncBiometric(card, chosen) {
+    const bioItems = chosen.filter(o => o.dataset.kind === 'biometric').map(o => o.dataset.item);
+    const box = card.querySelector('[data-biometric]');
+    if (!bioItems.length) { box.hidden = true; delete card.dataset.bioChoice; return; }
+
+    const answer = card.dataset.bioChoice || '';
+    box.hidden = false;
+    box.innerHTML = '';
+
+    const q = el('div', 'followup-q', '‘' + bioItems.join('’, ‘') + '’를 특정 개인을 알아보기 위해 기술적으로 처리해서 저장하나요?');
+    box.append(q);
+    const help = el('div', 'followup-help',
+      '같은 얼굴 이미지라도 사진 그대로 보관하면 일반 개인정보이고, 특정 개인을 알아볼 목적으로 특징값을 뽑아 저장하면 생체인식정보가 되어 민감정보로 다뤄집니다. 어느 쪽인지에 따라 필요한 동의서가 달라집니다.');
+    box.append(help);
+
+    const choices = el('div', 'followup-choices');
+    [
+      ['yes', '예, 특징값을 만들어 저장합니다', '얼굴 인식으로 본인을 확인하거나, 지문을 등록해 두고 대조하는 경우입니다.'],
+      ['no', '아니오, 원본만 보관합니다', '상담 기록용 사진이나 녹음처럼 알아보기 위한 처리 없이 그대로 두는 경우입니다.']
+    ].forEach(([value, title, desc]) => {
+      const b = el('button', 'followup-choice');
+      b.type = 'button';
+      b.dataset.biometricAnswer = value;
+      b.setAttribute('aria-pressed', String(answer === value));
+      b.append(el('b', null, title));
+      b.append(el('span', null, desc));
+      choices.append(b);
+    });
+    box.append(choices);
+
+    if (answer) {
+      const verdict = el('div', 'followup-verdict');
+      verdict.innerHTML = answer === 'yes'
+        ? '<strong>생체인식정보로 처리됩니다.</strong> 민감정보에 해당하므로 민감정보 수집·이용 동의서가 별도로 만들어집니다.'
+        : '<strong>일반 개인정보로 처리됩니다.</strong> 별도 동의서 없이 일반 수집·이용 동의서에 들어갑니다. 나중에 인식 기능을 넣는다면 이 질문에 다시 답해야 합니다.';
+      box.append(verdict);
+    }
+  }
+
+  function syncNotice(card, chosen) {
+    const sensitive = chosen.filter(o => o.dataset.kind === 'sensitive').map(o => o.dataset.item);
+    const unique = chosen.filter(o => o.dataset.kind === 'unique' && o.dataset.item !== '주민등록번호').map(o => o.dataset.item);
+    const hasRrn = chosen.some(o => o.dataset.item === '주민등록번호');
+    const bioSensitive = card.dataset.bioChoice === 'yes'
+      ? chosen.filter(o => o.dataset.kind === 'biometric').map(o => o.dataset.item) : [];
+
+    const notice = card.querySelector('[data-notice]');
+    const allSensitive = [...sensitive, ...bioSensitive];
+    const lines = [];
+    if (allSensitive.length) {
+      const names = '‘' + allSensitive.join('’, ‘') + '’';
+      lines.push(names + topic(allSensitive[allSensitive.length - 1]) + ' 민감정보입니다. 민감정보 수집·이용 동의서가 별도로 만들어집니다.');
+    }
+    if (unique.length) {
+      const names = '‘' + unique.join('’, ‘') + '’';
+      lines.push(names + topic(unique[unique.length - 1]) + ' 고유식별정보입니다. 고유식별정보 수집·이용 동의서가 별도로 만들어집니다.');
+    }
+    const location = chosen.filter(o => o.dataset.kind === 'location').map(o => o.dataset.item);
+    const login = chosen.filter(o => o.dataset.kind === 'login').map(o => o.dataset.item);
+
+    if (!lines.length) notice.hidden = true;
+    else {
+      notice.hidden = false;
+      notice.innerHTML = '<span class="alert-icon">!</span><span class="alert-body">' +
+        '<span class="alert-title">별도 동의서가 추가됩니다</span>' + lines.join(' ') + '</span>';
+    }
+
+    /* 위치정보: 개인정보 보호법 외에 위치정보법도 적용된다 */
+    const locNotice = card.querySelector('[data-location-notice]');
+    locNotice.hidden = !location.length;
+    if (location.length) {
+      locNotice.innerHTML = '<span class="alert-icon">!</span><span class="alert-body">' +
+        '<span class="alert-title">위치정보에는 위치정보법이 함께 적용됩니다</span>' +
+        '‘' + location.join('’, ‘') + '’처럼 개인의 위치를 추적할 수 있는 정보는 개인정보이면서 동시에 개인위치정보입니다. ' +
+        '개인정보 보호법뿐 아니라 「위치정보의 보호 및 이용 등에 관한 법률」이 함께 적용되어, 위치기반서비스사업 신고와 별도의 위치정보 이용약관이 필요할 수 있습니다. ' +
+        '이 항목을 넣으려면 법무 검토를 받으세요.</span>';
+    }
+
+    /* 간편인증: 연동 사업자에게서 받는 정보를 따로 적어야 한다 */
+    const loginNotice = card.querySelector('[data-login-notice]');
+    loginNotice.hidden = !login.length;
+    if (login.length) {
+      loginNotice.innerHTML = '<span class="alert-icon">i</span><span class="alert-body">' +
+        '<span class="alert-title">연동 사업자에게서 받는 정보를 확인하세요</span>' +
+        '‘' + login.join('’, ‘') + '’을(를) 쓰면 그 사업자에게서 이름, 이메일, 연락처 같은 정보를 넘겨받게 됩니다. ' +
+        '넘겨받는 항목이 사업자마다 다르므로 실제로 무엇을 받는지 확인해서 적어야 하고, 처리방침의 ' +
+        '"제3자로부터 수집하는 개인정보"에 사업자 이름과 함께 들어갑니다.</span>';
+    }
+
+    card.querySelector('[data-rrn]').hidden = !hasRrn;
+    card.querySelector('[data-rrn-field]').hidden = !hasRrn;
+  }
+
+  function syncSummary() {
+    const cards = [...groupList.querySelectorAll('[data-group]')];
+    let items = 0, req = 0, opt = 0, sensitive = false, unique = false, third = false, child = false;
+    cards.forEach(c => {
+      items += c.querySelectorAll('[data-picked] .tag').length;
+      if (c.dataset.consent === 'optional') opt++; else req++;
+      const chosen = [...c.querySelectorAll('.picker .opt[aria-pressed="true"]')];
+      if (chosen.some(o => o.dataset.kind === 'sensitive') || c.dataset.bioChoice === 'yes') sensitive = true;
+      if (chosen.some(o => o.dataset.kind === 'unique' || o.dataset.kind === 'rrn')) unique = true;
+      if (c.dataset.ageChoice === 'yes') child = true;
+    });
+    const sharing = stage.querySelector('[data-screen="sharing"]');
+    if (sharing && !sharing.querySelector('[data-action="toggle-no-third"]').checked) {
+      third = sharing.querySelectorAll('[data-third-rows] tr').length > 0;
+    }
+
+    const set = (key, value) => {
+      const node = groupsScreen.querySelector('[data-out="' + key + '"]');
+      if (node) node.textContent = value;
+    };
+    set('group-count', cards.length);
+    set('item-count', items);
+    const parts = [];
+    if (req) parts.push('필수 1건');
+    if (opt) parts.push('선택 1건');
+    if (sensitive) parts.push('민감정보 1건');
+    if (unique) parts.push('고유식별정보 1건');
+    if (child) parts.push('법정대리인 1건');
+    if (third) parts.push('제3자 제공 1건');
+    set('consent-summary', parts.length ? parts.join(', ') : '없음');
+  }
+
+  /* ══════════ sharing ══════════ */
+
+  const sharingScreen = stage.querySelector('[data-screen="sharing"]');
+
+  function renderVendorList() {
+    const list = sharingScreen.querySelector('[data-vendor-list]');
+    list.innerHTML = '';
+    PROCESSORS.forEach((p, i) => {
+      const b = el('button', 'vendor');
+      b.type = 'button';
+      b.dataset.vendor = String(i);
+      b.setAttribute('aria-pressed', 'false');
+      b.append(el('span', 'vendor-name', p.name));
+      b.append(el('span', 'vendor-work', p.work));
+      b.append(el('span', 'vendor-check', '✓'));
+      list.append(b);
+    });
+
+    const third = sharingScreen.querySelector('[data-third-list]');
+    third.innerHTML = '';
+    THIRD_PARTIES.forEach((p, i) => {
+      const b = el('button', 'vendor');
+      b.type = 'button';
+      b.dataset.third = String(i);
+      b.setAttribute('aria-pressed', 'false');
+      b.append(el('span', 'vendor-name', p.name));
+      b.append(el('span', 'vendor-work', p.purpose + ' · ' + p.items));
+      b.append(el('span', 'vendor-check', '✓'));
+      third.append(b);
+    });
+  }
+
+  function syncProcessorTable() {
+    const rows = sharingScreen.querySelector('[data-processor-rows]');
+    const has = rows.children.length > 0;
+    sharingScreen.querySelector('[data-processor-table]').hidden = !has;
+    sharingScreen.querySelector('[data-processor-empty]').hidden = has;
+    syncSharingState();
+  }
+
+  function syncThirdTable() {
+    const rows = sharingScreen.querySelector('[data-third-rows]');
+    const has = rows.children.length > 0;
+    sharingScreen.querySelector('[data-third-table]').hidden = !has;
+    sharingScreen.querySelector('[data-third-empty]').hidden = has;
+    syncSummary();
+    syncSharingState();
+  }
+
+  function syncSharingState() {
+    const p = sharingScreen.querySelectorAll('[data-processor-rows] tr').length;
+    const t = sharingScreen.querySelectorAll('[data-third-rows] tr').length;
+    if (prototypeShell.getScreen() === 'sharing' && !p && !t) return;
+  }
+
+  function esc(value) {
+    return String(value).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  }
+
+  /* 표 한 행: 값은 span 에 두고, 수정을 누르면 input 으로 바꿔 끼운다 */
+  function buildRow(values, removeAction) {
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      values.map(v => '<td data-cell><span>' + esc(v) + '</span></td>').join('') +
+      '<td class="cell-actions">' +
+      '<button class="btn btn-ghost btn-sm" data-action="edit-row">수정</button>' +
+      '<button class="btn btn-ghost btn-sm" data-action="' + removeAction + '">삭제</button>' +
+      '</td>';
+    return tr;
+  }
+
+  function rowValues(tr) {
+    return [...tr.querySelectorAll('[data-cell]')].map(td => {
+      const input = td.querySelector('input');
+      return input ? input.value.trim() : td.querySelector('span').textContent;
+    });
+  }
+
+  function addProcessorRow(name, work) {
+    sharingScreen.querySelector('[data-processor-rows]').append(buildRow([name, work], 'remove-processor'));
+    syncProcessorTable();
+  }
+
+  function addThirdRow(name, purpose, items, retention) {
+    sharingScreen.querySelector('[data-third-rows]')
+      .append(buildRow([name, purpose, items, retention], 'remove-third'));
+    syncThirdTable();
+  }
+
+  /* ══════════ events ══════════ */
+
+  stage.addEventListener('click', e => {
+    const card = e.target.closest('[data-group]');
+    const action = e.target.closest('[data-action]');
+
+    /* 처리 목적 선택 */
+    const purposeBtn = e.target.closest('[data-purpose]');
+    if (purposeBtn && card) { selectPurpose(card, purposeBtn); return; }
+
+    /* 항목 토글 */
+    const itemBtn = e.target.closest('.picker .opt[data-item]');
+    if (itemBtn && card) {
+      const on = itemBtn.getAttribute('aria-pressed') === 'true';
+      itemBtn.setAttribute('aria-pressed', on ? 'false' : 'true');
+      syncItems(card);
+      return;
+    }
+
+    /* 만 14세 확인 */
+    const ageAnswer = e.target.closest('button[data-age-answer]');
+    if (ageAnswer && card) {
+      card.dataset.ageChoice = ageAnswer.dataset.ageAnswer;
+      syncItems(card);
+      return;
+    }
+
+    /* 항목 태그 제거 */
+    const removeItem = e.target.closest('[data-remove-item]');
+    if (removeItem && card) {
+      const name = removeItem.dataset.removeItem;
+      const opt = [...card.querySelectorAll('.picker .opt[data-item]')].find(o => o.dataset.item === name);
+      if (opt) opt.setAttribute('aria-pressed', 'false');
+      syncItems(card);
+      return;
+    }
+    const removeCustom = e.target.closest('[data-remove-custom]');
+    if (removeCustom && card) { removeCustom.closest('.tag').remove(); syncSummary(); return; }
+
+    /* 생체정보 후속 답 */
+    const bioAnswer = e.target.closest('button[data-biometric-answer]');
+    if (bioAnswer && card) {
+      card.dataset.bioChoice = bioAnswer.dataset.biometricAnswer;
+      syncItems(card);
+      return;
+    }
+
+    /* 동의 구분 */
+    const segBtn = e.target.closest('.seg button[data-consent]');
+    if (segBtn && card) { setConsent(card, segBtn.dataset.consent); return; }
+
+    /* 보유기간 예시 */
+    const fill = e.target.closest('[data-fill-retention]');
+    if (fill && card) {
+      const input = card.querySelector('[data-retention]');
+      input.value = fill.dataset.fillRetention;
+      input.dataset.auto = 'false';
+      input.focus();
+      return;
+    }
+
+    /* 수탁사 선택 */
+    const vendor = e.target.closest('[data-vendor]');
+    if (vendor) {
+      const on = vendor.getAttribute('aria-pressed') === 'true';
+      vendor.setAttribute('aria-pressed', on ? 'false' : 'true');
+      const p = PROCESSORS[Number(vendor.dataset.vendor)];
+      if (on) {
+        [...sharingScreen.querySelectorAll('[data-processor-rows] tr')]
+          .filter(tr => rowValues(tr)[0] === p.name).forEach(tr => tr.remove());
+        syncProcessorTable();
+      } else addProcessorRow(p.name, p.work);
+      return;
+    }
+
+    /* 제3자 제공 선택 */
+    const thirdBtn = e.target.closest('[data-third]');
+    if (thirdBtn) {
+      const on = thirdBtn.getAttribute('aria-pressed') === 'true';
+      thirdBtn.setAttribute('aria-pressed', on ? 'false' : 'true');
+      const p = THIRD_PARTIES[Number(thirdBtn.dataset.third)];
+      if (on) {
+        [...sharingScreen.querySelectorAll('[data-third-rows] tr')]
+          .filter(tr => rowValues(tr)[0] === p.name).forEach(tr => tr.remove());
+        syncThirdTable();
+      } else addThirdRow(p.name, p.purpose, p.items, p.retention);
+      return;
+    }
+
+    /* 처리방침 목차에서 해당 조항으로 이동 */
+    const goto = e.target.closest('[data-goto]');
+    if (goto) {
+      e.preventDefault();
+      const target = stage.querySelector('[data-sec="' + goto.dataset.goto + '"]');
+      if (target) {
+        target.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        stage.querySelectorAll('[data-flash]').forEach(n => delete n.dataset.flash);
+        target.dataset.flash = 'true';
+        setTimeout(() => { delete target.dataset.flash; }, 1600);
+      }
+      return;
+    }
+
+    /* 문서 탭 */
+    const tab = e.target.closest('.tab');
+    if (tab) {
+      const screen = tab.closest('[data-screen]');
+      screen.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', String(t === tab)));
+      screen.querySelectorAll('[data-panel]').forEach(p => p.hidden = p.dataset.panel !== tab.dataset.doc);
+      return;
+    }
+
+    if (!action) return;
+
+    switch (action.dataset.action) {
+      case 'custom-purpose': {
+        const input = card.querySelector('[data-custom-purpose]');
+        card.querySelectorAll('[data-purpose]').forEach(b => b.setAttribute('aria-pressed', 'false'));
+        input.hidden = false;
+        input.focus();
+        buildPicker(card, null);
+        card.querySelector('[data-laws]').hidden = true;
+        const name = card.querySelector('.group-name');
+        name.textContent = '직접 입력한 목적';
+        delete name.dataset.unset;
+        break;
+      }
+      case 'toggle-extra': {
+        const section = action.closest('.picker-group');
+        const extras = [...section.querySelectorAll('[data-extra]')];
+        const showing = !extras[0].hidden;
+        extras.forEach(o => o.hidden = showing);
+        section.querySelector('.picker-items').hidden = showing && !section.querySelector('.opt:not([data-extra])');
+        const label = section.querySelector('.picker-group-head span').textContent;
+        action.textContent = showing
+          ? label + ' 전체 보기 (' + extras.length + '개 더)'
+          : label + ' 접기';
+        break;
+      }
+      case 'custom-item': {
+        const name = prompt('수집하는 항목의 이름을 적어주세요.\n이용자가 무엇을 주는지 알 수 있게 구체적으로 적습니다.');
+        if (!name || !name.trim()) break;
+        const picked = card.querySelector('[data-picked]');
+        const tag = el('span', 'tag');
+        tag.dataset.custom = 'true';
+        tag.append(document.createTextNode(name.trim()));
+        const x = el('button', null, '×');
+        x.type = 'button';
+        x.dataset.removeCustom = 'true';
+        tag.append(x);
+        picked.append(tag);
+        syncSummary();
+        break;
+      }
+      case 'add-group': {
+        const g = buildGroup();
+        groupList.append(g);
+        g.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        syncSummary();
+        break;
+      }
+      case 'remove-group': {
+        if (groupList.querySelectorAll('[data-group]').length === 1) {
+          alert('처리 목적은 최소 하나가 필요합니다.');
+          break;
+        }
+        card.remove();
+        syncSummary();
+        break;
+      }
+      case 'seed': {
+        prototypeShell.setState('Default');
+        break;
+      }
+      case 'open-processor-form':
+      case 'open-third-form': {
+        const form = sharingScreen.querySelector(
+          action.dataset.action === 'open-processor-form' ? '[data-processor-form]' : '[data-third-form]');
+        form.hidden = false;
+        form.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        form.querySelector('input').focus();
+        break;
+      }
+      case 'close-processor-form':
+      case 'close-third-form': {
+        const form = action.closest('.inline-form');
+        form.querySelectorAll('input').forEach(i => i.value = '');
+        form.hidden = true;
+        break;
+      }
+      case 'add-processor': {
+        const form = action.closest('.inline-form');
+        const name = form.querySelector('[data-new-name]').value.trim();
+        const work = form.querySelector('[data-new-work]').value.trim();
+        if (!name || !work) { toast('수탁사와 위탁 업무를 모두 적어주세요'); break; }
+        addProcessorRow(name, work);
+        form.querySelectorAll('input').forEach(i => i.value = '');
+        form.hidden = true;
+        toast('수탁사를 추가했습니다');
+        break;
+      }
+      case 'add-third': {
+        const form = action.closest('.inline-form');
+        const name = form.querySelector('[data-new-name]').value.trim();
+        const purpose = form.querySelector('[data-new-purpose]').value.trim();
+        const items = form.querySelector('[data-new-items]').value.trim();
+        const retention = form.querySelector('[data-new-retention]').value.trim();
+        if (!name || !purpose || !items || !retention) {
+          toast('제공받는 자, 목적, 항목, 보유기간을 모두 적어주세요');
+          break;
+        }
+        addThirdRow(name, purpose, items, retention);
+        form.querySelectorAll('input').forEach(i => i.value = '');
+        form.hidden = true;
+        toast('제3자 제공을 추가했습니다');
+        break;
+      }
+      case 'edit-row': {
+        const tr = action.closest('tr');
+        tr.dataset.editing = 'true';
+        tr.querySelectorAll('[data-cell]').forEach(td => {
+          const value = td.querySelector('span').textContent;
+          td.innerHTML = '<input type="text" value="' + esc(value) + '">';
+        });
+        action.dataset.action = 'save-row';
+        action.textContent = '저장';
+        action.classList.remove('btn-ghost');
+        action.classList.add('btn-primary');
+        tr.querySelector('[data-cell] input').focus();
+        break;
+      }
+      case 'save-row': {
+        const tr = action.closest('tr');
+        const values = rowValues(tr);
+        if (values.some(v => !v)) { toast('빈 칸이 있습니다. 모두 채워주세요'); break; }
+        tr.querySelectorAll('[data-cell]').forEach((td, i) => {
+          td.innerHTML = '<span>' + esc(values[i]) + '</span>';
+        });
+        delete tr.dataset.editing;
+        action.dataset.action = 'edit-row';
+        action.textContent = '수정';
+        action.classList.add('btn-ghost');
+        action.classList.remove('btn-primary');
+        toast('수정한 내용을 저장했습니다');
+        break;
+      }
+      case 'remove-processor': {
+        const name = rowValues(action.closest('tr'))[0];
+        action.closest('tr').remove();
+        const btn = [...sharingScreen.querySelectorAll('[data-vendor]')]
+          .find(b => PROCESSORS[Number(b.dataset.vendor)].name === name);
+        if (btn) btn.setAttribute('aria-pressed', 'false');
+        syncProcessorTable();
+        break;
+      }
+      case 'remove-third': {
+        const name = rowValues(action.closest('tr'))[0];
+        action.closest('tr').remove();
+        const btn = [...sharingScreen.querySelectorAll('[data-third]')]
+          .find(b => THIRD_PARTIES[Number(b.dataset.third)].name === name);
+        if (btn) btn.setAttribute('aria-pressed', 'false');
+        syncThirdTable();
+        break;
+      }
+      case 'restart': {
+        if (confirm('입력한 내용을 모두 지우고 처음부터 시작할까요?')) location.hash = 'start';
+        break;
+      }
+      case 'save-next': {
+        toast(action.dataset.label + object(action.dataset.label) + ' 저장했습니다');
+        markSaved(prototypeShell.getScreen());
+        setTimeout(() => prototypeShell.showScreen(action.dataset.next), 260);
+        break;
+      }
+      case 'download-one': {
+        const res = action.closest('[data-screen]');
+        const tab = res.querySelector('.tab[aria-selected="true"]');
+        downloadDoc(tab.dataset.doc);
+        break;
+      }
+      case 'download-all': {
+        ['consent-required', 'consent-optional', 'policy'].forEach((key, i) => {
+          setTimeout(() => downloadDoc(key, i === 2), i * 220);
+        });
+        break;
+      }
+    }
+  });
+
+  /* 보유 기간을 직접 고치면 더 이상 자동으로 덮어쓰지 않는다 */
+  stage.addEventListener('input', e => {
+    const ret = e.target.closest('[data-retention]');
+    if (ret) ret.dataset.auto = 'false';
+    if (e.target.closest('[data-effective]')) syncEffectiveDate();
+  });
+
+  /* 시행일: 비워두면 오늘부터 2주 뒤 */
+  function defaultEffectiveDate() {
+    const d = new Date();
+    d.setDate(d.getDate() + 14);
+    return d;
+  }
+
+  function formatKoreanDate(d) {
+    return d.getFullYear() + '년 ' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일';
+  }
+
+  function syncEffectiveDate() {
+    const input = stage.querySelector('[data-effective]');
+    const fallback = defaultEffectiveDate();
+    const raw = (input.value || '').trim();
+    const parsed = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? new Date(raw + 'T00:00:00') : null;
+    const shown = parsed && !isNaN(parsed) ? parsed : fallback;
+    input.min = new Date().toISOString().slice(0, 10);
+    stage.querySelectorAll('[data-default-effective]').forEach(n => n.textContent = formatKoreanDate(fallback));
+    stage.querySelectorAll('[data-effective-out]').forEach(n => n.textContent = formatKoreanDate(shown));
+  }
+
+  /* 체크박스 */
+  stage.addEventListener('change', e => {
+    const noProc = e.target.closest('[data-action="toggle-no-processor"]');
+    if (noProc) {
+      sharingScreen.querySelector('[data-processor-area]').classList.toggle('is-off', noProc.checked);
+      return;
+    }
+    const noThird = e.target.closest('[data-action="toggle-no-third"]');
+    if (noThird) {
+      sharingScreen.querySelector('[data-third-area]').classList.toggle('is-off', noThird.checked);
+      syncSummary();
+    }
+  });
+
+  /* ══════════ boot ══════════ */
+
+  groupList.append(buildGroup({
+    purpose: '회원 가입 및 본인 확인',
+    items: ['이름', '휴대전화번호', '이메일', '생년월일'],
+    consent: 'required'
+  }));
+  renderVendorList();
+
+  /* 더미 상태: 대표적인 수탁사 몇 곳이 이미 선택된 모습 */
+  ['Amazon Web Services Inc.', '㈜하이케어솔루션', '인포빕'].forEach(name => {
+    const i = PROCESSORS.findIndex(p => p.name === name);
+    if (i < 0) return;
+    const btn = sharingScreen.querySelector('[data-vendor="' + i + '"]');
+    if (btn) btn.setAttribute('aria-pressed', 'true');
+    addProcessorRow(PROCESSORS[i].name, PROCESSORS[i].work);
+  });
+  syncProcessorTable();
+  syncThirdTable();
+  syncSummary();
+  syncEffectiveDate();
+
+  show(location.hash.slice(1));
+</script>
