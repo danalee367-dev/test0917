@@ -144,9 +144,10 @@ describe("policyDocumentToMarkdown", () => {
     expect(withChild).toContain("13. 개인정보 처리방침의 변경에 관한 사항");
   });
 
-  test("개인정보 보호책임자 옆에 담당자 이름이 붙는다", () => {
+  test("개인정보 보호책임자는 직함만 표시하고 담당자 실명은 넣지 않는다", () => {
     const md = policyDocumentToMarkdown(basePolicy);
-    expect(md).toContain("개인정보 보호책임자: LG전자 정보보호담당 조상현");
+    expect(md).toContain("개인정보 보호책임자: LG전자 정보보호담당");
+    expect(md).not.toMatch(/개인정보 보호책임자: LG전자 정보보호담당 \S/);
   });
 });
 

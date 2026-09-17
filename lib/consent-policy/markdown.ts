@@ -247,7 +247,7 @@ function buildPolicySections(doc: PolicyDocument): PolicySection[] {
     {
       title: "개인정보 보호책임자 및 열람 청구 접수·처리 부서",
       body: [
-        `개인정보 보호책임자: ${COMPANY.privacyOfficer} ${COMPANY.privacyOfficerName}`,
+        `개인정보 보호책임자: ${COMPANY.privacyOfficer}`,
         "",
         `개인정보 운영책임자: ${doc.department}`,
         "",

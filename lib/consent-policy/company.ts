@@ -4,7 +4,6 @@ export const COMPANY = {
   address: "서울특별시 영등포구 여의대로 128 LG트윈타워",
   registrationNumber: "107-86-14075",
   privacyOfficer: "LG전자 정보보호담당",
-  privacyOfficerName: "조상현",
   /** 서비스 담당자 전화번호를 비워둔 경우에만 쓰는 회사 대표 번호 */
   defaultPhone: "02-6915-1774",
 } as const;
