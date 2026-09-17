@@ -1,0 +1,70 @@
+/* LG CI Color Palette  
+   Generated from LG Corporate Identity Color Guide */
+
+
+/* 2026.090.04 기준 edit by lish */
+
+:root {
+  /* Primary Color Palette */
+  --lg-red: #A50034;
+  --lg-gray: #6B6B6B;
+  --lg-white: #FFFFFF;
+
+  /* Secondary Color Palette */
+  --lg-pink: #EC008C;
+  --lg-teal: #0096AA;
+  --lg-orange: #E97300;
+  --lg-purple: #61279E;
+  --lg-light-teal: #3CD5AF;
+  --lg-yellow: #FFDA27;
+  --lg-light-purple: #B150C5;
+  --lg-light-gray: #D9DADB;
+  --lg-black: #1D1D1B;
+
+  /* Metallic Color Palette */
+  --lg-silver-metallic: #8A8C8F;
+  --lg-gold-metallic: #B49759;
+
+  /* Multi-Color Gradients */
+  --gradient-red-pink: linear-gradient(90deg, var(--lg-red), var(--lg-pink));
+  --gradient-pink-purple: linear-gradient(90deg, var(--lg-pink), var(--lg-purple));
+  --gradient-purple-lightpurple: linear-gradient(90deg, var(--lg-purple), var(--lg-light-purple));
+  --gradient-black-white: linear-gradient(90deg, var(--lg-black), var(--lg-white));
+  --gradient-teal-lightteal: linear-gradient(90deg, var(--lg-teal), var(--lg-light-teal));
+  --gradient-orange-yellow: linear-gradient(90deg, var(--lg-orange), var(--lg-yellow));
+  --gradient-gray-lightgray: linear-gradient(90deg, var(--lg-gray), var(--lg-light-gray));
+}
+
+/* Solid Color Utility Classes */
+.bg-lg-red { background-color: var(--lg-red); }
+.bg-lg-gray { background-color: var(--lg-gray); }
+.bg-lg-white { background-color: var(--lg-white); }
+
+.bg-lg-pink { background-color: var(--lg-pink); }
+.bg-lg-teal { background-color: var(--lg-teal); }
+.bg-lg-orange { background-color: var(--lg-orange); }
+.bg-lg-purple { background-color: var(--lg-purple); }
+.bg-lg-light-teal { background-color: var(--lg-light-teal); }
+.bg-lg-yellow { background-color: var(--lg-yellow); }
+.bg-lg-light-purple { background-color: var(--lg-light-purple); }
+.bg-lg-light-gray { background-color: var(--lg-light-gray); }
+.bg-lg-black { background-color: var(--lg-black); }
+
+.bg-lg-silver-metallic { background-color: var(--lg-silver-metallic); }
+.bg-lg-gold-metallic { background-color: var(--lg-gold-metallic); }
+
+.text-lg-red { color: var(--lg-red); }
+.text-lg-gray { color: var(--lg-gray); }
+.text-lg-pink { color: var(--lg-pink); }
+.text-lg-teal { color: var(--lg-teal); }
+.text-lg-orange { color: var(--lg-orange); }
+.text-lg-purple { color: var(--lg-purple); }
+
+/* Gradient Utility Classes */
+.bg-gradient-red-pink { background: var(--gradient-red-pink); }
+.bg-gradient-pink-purple { background: var(--gradient-pink-purple); }
+.bg-gradient-purple-lightpurple { background: var(--gradient-purple-lightpurple); }
+.bg-gradient-black-white { background: var(--gradient-black-white); }
+.bg-gradient-teal-lightteal { background: var(--gradient-teal-lightteal); }
+.bg-gradient-orange-yellow { background: var(--gradient-orange-yellow); }
+.bg-gradient-gray-lightgray { background: var(--gradient-gray-lightgray); }
