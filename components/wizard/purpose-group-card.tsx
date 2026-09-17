@@ -199,48 +199,12 @@ export function PurposeGroupCard({
           onAnswer={(answer) => dispatch({ type: "group/set-age-answer", id: group.id, answer })}
           verdict={
             group.ageAnswer === "yes"
-              ? "<strong>만 14세 미만 아동용 동의서가 추가됩니다.</strong> 법정대리인의 이름과 연락처를 아래에 적어주세요."
+              ? "<strong>만 14세 미만 아동용 동의서가 추가됩니다.</strong> 동의서에는 법정대리인 성명·연락처를 받는 기재란이 빈 칸으로 들어가며, 실제 값은 서비스에서 법정대리인에게 직접 받습니다."
               : group.ageAnswer === "no"
                 ? "<strong>만 14세 이상만 가입할 수 있다는 내용이 문서에 들어갑니다.</strong> 가입 화면에서 나이를 확인해 걸러내는 절차가 실제로 있어야 합니다."
                 : undefined
           }
         />
-      ) : null}
-      {group.ageAnswer === "yes" ? (
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium">법정대리인 성명 <span className="text-primary">필수</span></label>
-            <input
-              type="text"
-              value={group.guardianName}
-              onChange={(e) =>
-                dispatch({
-                  type: "group/set-guardian",
-                  id: group.id,
-                  name: e.target.value,
-                  contact: group.guardianContact,
-                })
-              }
-              className="h-8 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium">법정대리인 연락처 <span className="text-primary">필수</span></label>
-            <input
-              type="text"
-              value={group.guardianContact}
-              onChange={(e) =>
-                dispatch({
-                  type: "group/set-guardian",
-                  id: group.id,
-                  name: group.guardianName,
-                  contact: e.target.value,
-                })
-              }
-              className="h-8 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-            />
-          </div>
-        </div>
       ) : null}
 
       {/* 생체정보 후속 질문 */}

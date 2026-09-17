@@ -90,11 +90,15 @@ export function consentDocumentToMarkdown(doc: ConsentDocument, serviceName: str
   }
 
   if (doc.kind === "child") {
-    lines.push("## 법정대리인", "");
-    doc.rows.forEach((row) => {
-      lines.push(`- 성명: ${row.guardianName || "(미입력)"} · 연락처: ${row.guardianContact || "(미입력)"}`);
-    });
-    lines.push("");
+    lines.push(
+      "## 법정대리인",
+      "",
+      "동의 시 아래 항목을 법정대리인으로부터 직접 수집합니다.",
+      "",
+      "- 법정대리인 성명: _________________",
+      "- 법정대리인 연락처: _________________",
+      "",
+    );
   }
 
   lines.push(CONSENT_REFUSAL[doc.kind](serviceName), "");
@@ -161,6 +165,20 @@ function buildPolicySections(doc: PolicyDocument): PolicySection[] {
           : []),
       ],
     },
+    ...(doc.hasChildData
+      ? [
+          {
+            title: "14세 미만 아동의 개인정보 처리에 관한 사항",
+            body: [
+              "회사는 만 14세 미만 아동의 개인정보를 처리하기 위하여 동의가 필요한 경우, 법정대리인의 동의를 받은 후에만 처리합니다.",
+              "",
+              "법정대리인의 동의를 받을 때에는 법정대리인 확인에 필요한 최소한의 정보만 수집하며, 그 목적 외로 이용하지 않습니다.",
+              "",
+              "법정대리인은 아동의 개인정보에 대한 열람, 정정·삭제, 처리정지 및 동의 철회를 요구할 수 있고, 아동 본인이 요청하는 경우에도 법정대리인의 동의 여부를 확인한 후 처리합니다.",
+            ],
+          },
+        ]
+      : []),
     {
       title: "개인정보의 제3자 제공에 관한 사항",
       body: [

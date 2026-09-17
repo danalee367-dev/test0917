@@ -25,7 +25,6 @@ export type WizardAction =
   | { type: "group/set-consent"; id: string; consent: ConsentTier }
   | { type: "group/set-biometric-answer"; id: string; answer: "yes" | "no" }
   | { type: "group/set-age-answer"; id: string; answer: "yes" | "no" }
-  | { type: "group/set-guardian"; id: string; name: string; contact: string }
   | { type: "group/set-rrn-basis"; id: string; value: string }
   | { type: "sharing/set-no-processors"; value: boolean }
   | { type: "sharing/add-processor"; processor: Processor }
@@ -61,8 +60,6 @@ function reconcileDerivedFields(group: PurposeGroup): PurposeGroup {
     ...group,
     biometricAnswer: hasBiometric ? group.biometricAnswer : null,
     ageAnswer: hasBirthDate ? group.ageAnswer : null,
-    guardianName: hasBirthDate ? group.guardianName : "",
-    guardianContact: hasBirthDate ? group.guardianContact : "",
     rrnBasis: hasRrn ? group.rrnBasis : "",
   };
 }
@@ -150,13 +147,6 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
 
     case "group/set-age-answer":
       return mapGroup(state, action.id, (group) => ({ ...group, ageAnswer: action.answer }));
-
-    case "group/set-guardian":
-      return mapGroup(state, action.id, (group) => ({
-        ...group,
-        guardianName: action.name,
-        guardianContact: action.contact,
-      }));
 
     case "group/set-rrn-basis":
       return mapGroup(state, action.id, (group) => ({ ...group, rrnBasis: action.value }));

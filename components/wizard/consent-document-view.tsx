@@ -39,12 +39,10 @@ export function ConsentDocumentView({ doc, serviceName }: { doc: ConsentDocument
       ) : null}
 
       {doc.kind === "child" ? (
-        <p className="mb-3 text-xs text-muted-foreground">
-          법정대리인:{" "}
-          {doc.rows
-            .map((row) => `${row.guardianName || "(미입력)"} (${row.guardianContact || "(미입력)"})`)
-            .join(", ")}
-        </p>
+        <div className="mb-3 text-xs text-muted-foreground">
+          <p className="mb-1">동의 시 아래 항목을 법정대리인으로부터 직접 수집합니다.</p>
+          <p>법정대리인 성명: _________________ · 법정대리인 연락처: _________________</p>
+        </div>
       ) : null}
 
       <p className="mb-3">{consentRefusal(doc.kind, serviceName)}</p>

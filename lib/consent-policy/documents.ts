@@ -8,8 +8,6 @@ export interface ConsentRow {
   purpose: string;
   items: string[];
   retention: string;
-  guardianName?: string;
-  guardianContact?: string;
   /** 주민등록번호가 포함된 고유식별정보 행에만 붙는 수집 근거 법령 */
   rrnBasis?: string;
 }
@@ -56,6 +54,8 @@ export interface PolicyDocument {
   usesCookies: boolean;
   /** 위치정보 카테고리 항목을 하나라도 골랐는지. 위치정보 조항을 추가할지 가른다. */
   usesLocation: boolean;
+  /** 만 14세 미만 답을 예로 한 묶음이 있는지. 아동 개인정보 처리 조항을 추가할지 가른다. */
+  hasChildData: boolean;
 }
 
 export interface DocumentSet {
@@ -123,8 +123,6 @@ function childRows(groups: PurposeGroup[]): ConsentRow[] {
       purpose: purposeLabel(group),
       items: group.selectedItems.map((item) => item.name),
       retention: group.retention,
-      guardianName: group.guardianName,
-      guardianContact: group.guardianContact,
     }));
 }
 
@@ -173,6 +171,7 @@ function buildPolicyDocument(state: WizardState, today: Date): PolicyDocument {
   const allSelectedItems = groups.flatMap((group) => group.selectedItems);
   const usesCookies = allSelectedItems.some((item) => item.name === "쿠키");
   const usesLocation = allSelectedItems.some((item) => item.kind === "location");
+  const hasChildData = groups.some((group) => group.ageAnswer === "yes");
 
   return {
     serviceName: state.serviceInfo.name,
@@ -203,6 +202,7 @@ function buildPolicyDocument(state: WizardState, today: Date): PolicyDocument {
     ownerEmail: state.serviceInfo.ownerEmail,
     usesCookies,
     usesLocation,
+    hasChildData,
   };
 }
 

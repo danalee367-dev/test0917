@@ -44,25 +44,17 @@ describe("consentDocumentToMarkdown", () => {
     expect(md).toContain("「소득세법」 제145조");
   });
 
-  test("만 14세 미만 문서는 법정대리인 정보를 보여준다", () => {
+  test("만 14세 미만 문서는 법정대리인 성명·연락처를 빈 칸으로 보여준다", () => {
     const doc: ConsentDocument = {
       kind: "child",
       title: "개인정보 수집 및 이용 동의서(만 14세 미만)",
-      rows: [
-        {
-          purpose: "회원 가입",
-          items: ["생년월일"],
-          retention: "탈퇴 시까지",
-          guardianName: "김보호",
-          guardianContact: "010-1234-5678",
-        },
-      ],
+      rows: [{ purpose: "회원 가입", items: ["생년월일"], retention: "탈퇴 시까지" }],
     };
 
     const md = consentDocumentToMarkdown(doc, "LG 홈케어 멤버십");
 
-    expect(md).toContain("김보호");
-    expect(md).toContain("010-1234-5678");
+    expect(md).toContain("법정대리인 성명: _________________");
+    expect(md).toContain("법정대리인 연락처: _________________");
   });
 });
 
@@ -94,6 +86,7 @@ describe("policyDocumentToMarkdown", () => {
     ownerEmail: "homecare.privacy@lge.com",
     usesCookies: false,
     usesLocation: false,
+    hasChildData: false,
   };
 
   test("처리목적·항목·보유기간 표가 필수/선택 | 목적 | 항목 | 보유기간 구조다", () => {
@@ -139,6 +132,16 @@ describe("policyDocumentToMarkdown", () => {
     expect(withLocation).toContain("12. 위치정보의 처리에 관한 사항");
     expect(withLocation).toContain("위치정보의 보호 및 이용 등에 관한 법률");
     expect(withLocation).toContain("13. 개인정보 처리방침의 변경에 관한 사항");
+  });
+
+  test("만 14세 미만 아동 항목이 있으면 2번 조항으로 들어가고 뒤 번호가 밀린다", () => {
+    const without = policyDocumentToMarkdown(basePolicy);
+    expect(without).not.toContain("14세 미만 아동의 개인정보 처리에 관한 사항");
+
+    const withChild = policyDocumentToMarkdown({ ...basePolicy, hasChildData: true });
+    expect(withChild).toContain("2. 14세 미만 아동의 개인정보 처리에 관한 사항");
+    expect(withChild).toContain("법정대리인의 동의");
+    expect(withChild).toContain("13. 개인정보 처리방침의 변경에 관한 사항");
   });
 
   test("개인정보 보호책임자 옆에 담당자 이름이 붙는다", () => {

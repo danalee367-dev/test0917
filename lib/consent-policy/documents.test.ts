@@ -78,7 +78,7 @@ describe("buildDocuments", () => {
     expect(withYes.consents.find((d) => d.kind === "required")).toBeUndefined();
   });
 
-  test("만 14세 미만 답을 예로 하면 법정대리인 정보와 함께 아동용 동의서가 생긴다", () => {
+  test("만 14세 미만 답을 예로 하면 아동용 동의서가 생긴다", () => {
     let state = createInitialWizardState();
     const id = firstGroupId(state);
     state = wizardReducer(state, { type: "group/set-custom-purpose-label", id, label: "회원 가입" });
@@ -86,22 +86,12 @@ describe("buildDocuments", () => {
     state = wizardReducer(state, { type: "group/set-retention", id, value: "탈퇴 시까지" });
     state = wizardReducer(state, { type: "group/toggle-item", id, name: "생년월일" });
     state = wizardReducer(state, { type: "group/set-age-answer", id, answer: "yes" });
-    state = wizardReducer(state, {
-      type: "group/set-guardian",
-      id,
-      name: "김보호",
-      contact: "010-1234-5678",
-    });
 
     const docs = buildDocuments(state);
     const child = docs.consents.find((d) => d.kind === "child");
 
     expect(child).toBeDefined();
-    expect(child!.rows[0]).toMatchObject({
-      guardianName: "김보호",
-      guardianContact: "010-1234-5678",
-      items: ["생년월일"],
-    });
+    expect(child!.rows[0]).toMatchObject({ items: ["생년월일"] });
   });
 
   test("보유 기간에 법정 근거가 있는 목적을 고르면 처리방침에 근거가 중복 없이 모인다", () => {
@@ -180,6 +170,22 @@ describe("buildDocuments", () => {
 
     expect(docs.policy.usesLocation).toBe(true);
     expect(docs.policy.usesCookies).toBe(false);
+  });
+
+  test("만 14세 미만 답을 예로 하면 처리방침에 아동 데이터 처리 표시가 켜진다", () => {
+    let state = createInitialWizardState();
+    const id = firstGroupId(state);
+    state = wizardReducer(state, { type: "group/set-custom-purpose-label", id, label: "회원 가입" });
+    state = wizardReducer(state, { type: "group/select-custom-purpose", id });
+    state = wizardReducer(state, { type: "group/set-retention", id, value: "탈퇴 시까지" });
+    state = wizardReducer(state, { type: "group/toggle-item", id, name: "생년월일" });
+
+    const withoutAnswer = buildDocuments(state);
+    expect(withoutAnswer.policy.hasChildData).toBe(false);
+
+    state = wizardReducer(state, { type: "group/set-age-answer", id, answer: "yes" });
+    const withYes = buildDocuments(state);
+    expect(withYes.policy.hasChildData).toBe(true);
   });
 
   test("담당자 전화번호를 비우면 회사 대표 번호가 들어간다", () => {

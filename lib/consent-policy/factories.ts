@@ -13,8 +13,6 @@ export function createEmptyPurposeGroup(): PurposeGroup {
     consent: "required",
     biometricAnswer: null,
     ageAnswer: null,
-    guardianName: "",
-    guardianContact: "",
     rrnBasis: "",
   };
 }

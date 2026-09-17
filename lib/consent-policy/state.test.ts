@@ -61,19 +61,16 @@ describe("group/toggle-item", () => {
     expect(state.purposeGroups[0]!.biometricAnswer).toBeNull();
   });
 
-  test("생년월일을 빼면 만14세 답변과 법정대리인 정보가 함께 지워진다", () => {
+  test("생년월일을 빼면 만14세 답변이 함께 지워진다", () => {
     let state = createInitialWizardState();
     const id = firstGroupId(state);
 
     state = wizardReducer(state, { type: "group/toggle-item", id, name: "생년월일" });
     state = wizardReducer(state, { type: "group/set-age-answer", id, answer: "yes" });
-    state = wizardReducer(state, { type: "group/set-guardian", id, name: "김보호", contact: "010-0000-0000" });
 
     state = wizardReducer(state, { type: "group/toggle-item", id, name: "생년월일" });
 
     expect(state.purposeGroups[0]!.ageAnswer).toBeNull();
-    expect(state.purposeGroups[0]!.guardianName).toBe("");
-    expect(state.purposeGroups[0]!.guardianContact).toBe("");
   });
 
   test("주민등록번호를 빼면 근거 법령 입력이 지워진다", () => {

@@ -53,8 +53,6 @@ export interface PurposeGroup {
   consent: ConsentTier;
   biometricAnswer: "yes" | "no" | null;
   ageAnswer: "yes" | "no" | null;
-  guardianName: string;
-  guardianContact: string;
   rrnBasis: string;
 }
 
