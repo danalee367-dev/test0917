@@ -59,9 +59,16 @@ export interface PolicyDocument {
 }
 
 export interface DocumentSet {
+  /** 서비스명이 비었을 때의 대체 문구까지 적용된, 문서 전체가 공유하는 값 */
+  serviceName: string;
   consents: ConsentDocument[];
   thirdParty: ThirdPartyDocument | null;
   policy: PolicyDocument;
+}
+
+/** 서비스명이 비어 있으면 모든 문서·화면이 같은 대체 문구를 쓰도록 fallback을 한 곳에 모은다. */
+export function resolveServiceName(name: string): string {
+  return name.trim() || "(서비스명 미입력)";
 }
 
 /** 필수 동의서 한 종류를 제외하면 모두 제목 끝에 "(선택)"을 붙여, 거부해도 서비스 이용에
@@ -165,7 +172,7 @@ function dedupeLaws(groups: PurposeGroup[]): LawReference[] {
   return [...seen.values()];
 }
 
-function buildPolicyDocument(state: WizardState, today: Date): PolicyDocument {
+function buildPolicyDocument(state: WizardState, today: Date, serviceName: string): PolicyDocument {
   const groups = state.purposeGroups.filter(isGroupComplete);
   const effectiveDate = resolveEffectiveDate(state.serviceInfo.effectiveDate, today);
   const allSelectedItems = groups.flatMap((group) => group.selectedItems);
@@ -174,7 +181,7 @@ function buildPolicyDocument(state: WizardState, today: Date): PolicyDocument {
   const hasChildData = groups.some((group) => group.ageAnswer === "yes");
 
   return {
-    serviceName: state.serviceInfo.name,
+    serviceName,
     effectiveDateLabel: formatKoreanDate(effectiveDate),
     purposeRows: groups.map((group) => ({
       tier: group.consent === "optional" ? "선택" : "필수",
@@ -207,10 +214,12 @@ function buildPolicyDocument(state: WizardState, today: Date): PolicyDocument {
 }
 
 export function buildDocuments(state: WizardState, today: Date = new Date()): DocumentSet {
+  const serviceName = resolveServiceName(state.serviceInfo.name);
   return {
+    serviceName,
     consents: buildConsentDocuments(state.purposeGroups),
     thirdParty: buildThirdPartyDocument(state),
-    policy: buildPolicyDocument(state, today),
+    policy: buildPolicyDocument(state, today, serviceName),
   };
 }
 

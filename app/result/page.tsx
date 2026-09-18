@@ -43,8 +43,8 @@ const CONSENT_BADGE: Record<ConsentDocument["kind"], { label: string; className:
 
 export default function ResultPage() {
   const { state } = useWizard();
-  const serviceName = state.serviceInfo.name || "서비스";
   const docs = useMemo(() => buildDocuments(state), [state]);
+  const serviceName = docs.serviceName;
 
   interface Tab {
     key: string;

@@ -188,6 +188,14 @@ describe("buildDocuments", () => {
     expect(withYes.policy.hasChildData).toBe(true);
   });
 
+  test("서비스명을 비우면 문서 전체가 같은 대체 문구를 쓴다", () => {
+    const state = createInitialWizardState();
+    const docs = buildDocuments(state);
+
+    expect(docs.serviceName).toBe("(서비스명 미입력)");
+    expect(docs.policy.serviceName).toBe("(서비스명 미입력)");
+  });
+
   test("담당자 전화번호를 비우면 회사 대표 번호가 들어간다", () => {
     const state = createInitialWizardState();
     const docs = buildDocuments(state);
