@@ -17,6 +17,7 @@ export default function ServiceInfoPage() {
   const info = state.serviceInfo;
   const defaultDateLabel = formatKoreanDate(defaultEffectiveDate());
   const [showErrors, setShowErrors] = useState(false);
+  const [companyInfoOpen, setCompanyInfoOpen] = useState(false);
 
   const update = (patch: Partial<typeof info>) => dispatch({ type: "service-info/update", patch });
   const fieldError = (condition: boolean, message: string) => (showErrors && condition ? message : null);
@@ -169,49 +170,59 @@ export default function ServiceInfoPage() {
       </section>
 
       <section className="mb-3.5 rounded-xl border border-dashed bg-muted p-5">
-        <div className="mb-1 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setCompanyInfoOpen((v) => !v)}
+          aria-expanded={companyInfoOpen}
+          className="flex w-full items-center gap-2 text-left"
+        >
           <h2 className="text-[17px] font-bold tracking-tight">회사 정보</h2>
           <span className="rounded-full border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">고정</span>
-        </div>
-        <p className="mb-4 text-xs text-muted-foreground">모든 문서에 같은 값이 들어갑니다. 입력할 필요가 없습니다.</p>
+          <span className="ml-auto text-xs text-muted-foreground">{companyInfoOpen ? "접기 ▲" : "펼치기 ▼"}</span>
+        </button>
+        <p className="mb-4 mt-1 text-xs text-muted-foreground">모든 문서에 같은 값이 들어갑니다. 입력할 필요가 없습니다.</p>
 
-        <div className="grid gap-3.5 sm:grid-cols-2">
-          <div>
-            <label className="mb-2.75 block text-[15px] font-bold">법인명</label>
-            <input
-              readOnly
-              value={COMPANY.name}
-              className="h-8 w-full rounded-lg border bg-muted px-2.5 text-sm text-muted-foreground outline-none"
-            />
-          </div>
-          <div>
-            <label className="mb-2.75 block text-[15px] font-bold">사업자등록번호</label>
-            <input
-              readOnly
-              value={COMPANY.registrationNumber}
-              className="h-8 w-full rounded-lg border bg-muted px-2.5 text-sm text-muted-foreground outline-none"
-            />
-          </div>
-        </div>
-        <div className="mt-7.5">
-          <label className="mb-2.75 block text-[15px] font-bold">주소</label>
-          <input
-            readOnly
-            value={COMPANY.address}
-            className="h-8 w-full rounded-lg border bg-muted px-2.5 text-sm text-muted-foreground outline-none"
-          />
-        </div>
-        <div className="mt-7.5">
-          <label className="mb-2.75 block text-[15px] font-bold">개인정보 보호책임자</label>
-          <input
-            readOnly
-            value={COMPANY.privacyOfficer}
-            className="h-8 w-full rounded-lg border bg-muted px-2.5 text-sm text-muted-foreground outline-none"
-          />
-        </div>
-        <p className="mt-3.5 text-xs text-muted-foreground">
-          이 값을 바꿔야 한다면 개인정보보호 담당 부서에 문의하세요.
-        </p>
+        {companyInfoOpen ? (
+          <>
+            <div className="grid gap-3.5 sm:grid-cols-2">
+              <div>
+                <label className="mb-2.75 block text-[15px] font-bold">법인명</label>
+                <input
+                  readOnly
+                  value={COMPANY.name}
+                  className="h-8 w-full rounded-lg border bg-muted px-2.5 text-sm text-muted-foreground outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-2.75 block text-[15px] font-bold">사업자등록번호</label>
+                <input
+                  readOnly
+                  value={COMPANY.registrationNumber}
+                  className="h-8 w-full rounded-lg border bg-muted px-2.5 text-sm text-muted-foreground outline-none"
+                />
+              </div>
+            </div>
+            <div className="mt-7.5">
+              <label className="mb-2.75 block text-[15px] font-bold">주소</label>
+              <input
+                readOnly
+                value={COMPANY.address}
+                className="h-8 w-full rounded-lg border bg-muted px-2.5 text-sm text-muted-foreground outline-none"
+              />
+            </div>
+            <div className="mt-7.5">
+              <label className="mb-2.75 block text-[15px] font-bold">개인정보 보호책임자</label>
+              <input
+                readOnly
+                value={COMPANY.privacyOfficer}
+                className="h-8 w-full rounded-lg border bg-muted px-2.5 text-sm text-muted-foreground outline-none"
+              />
+            </div>
+            <p className="mt-3.5 text-xs text-muted-foreground">
+              이 값을 바꿔야 한다면 개인정보보호 담당 부서에 문의하세요.
+            </p>
+          </>
+        ) : null}
       </section>
 
       <div className="mt-6 flex items-center gap-2.5 border-t pt-5">
