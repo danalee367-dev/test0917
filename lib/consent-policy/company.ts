@@ -1,9 +1,9 @@
 /** 모든 문서에 고정으로 들어가는 회사 값. PRODUCT.md의 "회사 정보는 고정" 결정에 따른다. */
 export const COMPANY = {
-  name: "LG전자 주식회사",
-  address: "서울특별시 영등포구 여의대로 128 LG트윈타워",
+  name: "<회사명> 주식회사",
+  address: "서울특별시 영등포구 여의대로 128 <건물명>",
   registrationNumber: "107-86-14075",
-  privacyOfficer: "LG전자 정보보호담당",
+  privacyOfficer: "<회사명> 정보보호담당",
   /** 서비스 담당자 전화번호를 비워둔 경우에만 쓰는 회사 대표 번호 */
   defaultPhone: "02-6915-1774",
 } as const;

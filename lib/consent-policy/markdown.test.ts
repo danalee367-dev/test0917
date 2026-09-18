@@ -6,6 +6,7 @@ import {
   policyFileName,
   thirdPartyDocumentToMarkdown,
 } from "./markdown";
+import { COMPANY } from "./company";
 import type { ConsentDocument, PolicyDocument, ThirdPartyDocument } from "./documents";
 
 describe("consentDocumentToMarkdown", () => {
@@ -146,8 +147,8 @@ describe("policyDocumentToMarkdown", () => {
 
   test("개인정보 보호책임자는 직함만 표시하고 담당자 실명은 넣지 않는다", () => {
     const md = policyDocumentToMarkdown(basePolicy);
-    expect(md).toContain("개인정보 보호책임자: LG전자 정보보호담당");
-    expect(md).not.toMatch(/개인정보 보호책임자: LG전자 정보보호담당 \S/);
+    expect(md).toContain(`개인정보 보호책임자: ${COMPANY.privacyOfficer}`);
+    expect(md).not.toMatch(new RegExp(`개인정보 보호책임자: ${COMPANY.privacyOfficer} \\S`));
   });
 });
 
