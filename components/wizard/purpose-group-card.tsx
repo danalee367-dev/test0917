@@ -20,14 +20,22 @@ import { cn } from "@/lib/utils";
 export function PurposeGroupCard({
   group,
   canRemove,
+  showErrors = false,
 }: {
   group: PurposeGroup;
   canRemove: boolean;
+  showErrors?: boolean;
 }) {
   const { dispatch, showToast } = useWizard();
   const [customDraft, setCustomDraft] = useState(group.customPurpose);
   const label = purposeLabel(group);
   const isOptional = group.consent === "optional";
+  const missingPurpose = showErrors && !label.trim();
+  const missingItems = showErrors && group.selectedItems.length === 0;
+  const missingRetention = showErrors && !group.retention.trim();
+  const missingRrnBasis = showErrors && hasRrnItem(group) && !group.rrnBasis.trim();
+  const missingAgeAnswer = showErrors && hasBirthDate(group) && group.ageAnswer === null;
+  const missingBiometricAnswer = showErrors && hasBiometricItem(group) && group.biometricAnswer === null;
 
   const effectiveSensitiveNames = group.selectedItems
     .filter((item) => isSensitiveEffective(item, group))
@@ -133,8 +141,15 @@ export function PurposeGroupCard({
               dispatch({ type: "group/set-custom-purpose-label", id: group.id, label: e.target.value });
             }}
             placeholder="이 서비스가 개인정보를 받는 이유를 적으세요"
-            className="mt-2.5 h-8 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            aria-invalid={missingPurpose}
+            className={cn(
+              "mt-2.5 h-8 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+              missingPurpose && "border-destructive",
+            )}
           />
+        ) : null}
+        {missingPurpose ? (
+          <p className="mt-1.5 text-xs text-destructive">처리 목적을 고르거나 직접 입력하세요.</p>
         ) : null}
       </div>
 
@@ -143,9 +158,16 @@ export function PurposeGroupCard({
         <label className="mb-2.75 flex items-center gap-1.5 text-[15px] font-bold">
           수집 항목 <span className="text-xs font-semibold text-primary">필수</span>
         </label>
-        <div className="flex min-h-10.5 flex-wrap items-center gap-1.5 rounded-lg border bg-muted p-2.5">
+        <div
+          className={cn(
+            "flex min-h-10.5 flex-wrap items-center gap-1.5 rounded-lg border bg-muted p-2.5",
+            missingItems && "border-destructive",
+          )}
+        >
           {group.selectedItems.length === 0 ? (
-            <span className="text-sm text-muted-foreground">아래에서 항목을 선택하세요</span>
+            <span className={cn("text-sm", missingItems ? "text-destructive" : "text-muted-foreground")}>
+              {missingItems ? "수집 항목을 하나 이상 고르세요" : "아래에서 항목을 선택하세요"}
+            </span>
           ) : (
             group.selectedItems.map((item) => (
               <span
@@ -197,6 +219,7 @@ export function PurposeGroupCard({
           ]}
           value={group.ageAnswer}
           onAnswer={(answer) => dispatch({ type: "group/set-age-answer", id: group.id, answer })}
+          missing={missingAgeAnswer}
           verdict={
             group.ageAnswer === "yes"
               ? "<strong>만 14세 미만 아동용 동의서가 추가됩니다.</strong> 동의서에는 법정대리인 성명·연락처를 받는 기재란이 빈 칸으로 들어가며, 실제 값은 서비스에서 법정대리인에게 직접 받습니다."
@@ -229,6 +252,7 @@ export function PurposeGroupCard({
           ]}
           value={group.biometricAnswer}
           onAnswer={(answer) => dispatch({ type: "group/set-biometric-answer", id: group.id, answer })}
+          missing={missingBiometricAnswer}
           verdict={
             group.biometricAnswer === "yes"
               ? "<strong>생체인식정보로 처리됩니다.</strong> 민감정보 수집·이용 동의서가 별도로 만들어집니다."
@@ -306,11 +330,16 @@ export function PurposeGroupCard({
               value={group.rrnBasis}
               onChange={(e) => dispatch({ type: "group/set-rrn-basis", id: group.id, value: e.target.value })}
               placeholder="예: 「소득세법」 제145조에 따른 원천징수영수증 발급"
-              className="h-8 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+              aria-invalid={missingRrnBasis}
+              className={cn(
+                "h-8 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                missingRrnBasis && "border-destructive",
+              )}
             />
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              법령의 이름과 조항을 함께 적으세요. 이 내용이 동의서와 처리방침에 그대로 들어가고, 법무 검토에서 가장
-              먼저 확인하는 부분입니다.
+            <p className={cn("mt-1.5 text-xs", missingRrnBasis ? "text-destructive" : "text-muted-foreground")}>
+              {missingRrnBasis
+                ? "주민등록번호 수집의 근거 법령을 입력하세요."
+                : "법령의 이름과 조항을 함께 적으세요. 이 내용이 동의서와 처리방침에 그대로 들어가고, 법무 검토에서 가장 먼저 확인하는 부분입니다."}
             </p>
           </div>
         </>
@@ -328,8 +357,15 @@ export function PurposeGroupCard({
             dispatch({ type: "group/set-retention", id: group.id, value: e.target.value, auto: false })
           }
           placeholder="예: 회원 탈퇴 시까지"
-          className="h-8 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          aria-invalid={missingRetention}
+          className={cn(
+            "h-8 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+            missingRetention && "border-destructive",
+          )}
         />
+        {missingRetention ? (
+          <p className="mt-1.5 text-xs text-destructive">보유 및 이용 기간을 입력하세요.</p>
+        ) : null}
         <div className="mt-2 flex flex-wrap items-baseline gap-1.5">
           <span className="text-[11px] text-muted-foreground">예시</span>
           {RETENTION_SAMPLES.map((sample) => (

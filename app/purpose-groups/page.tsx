@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppHeader } from "@/components/wizard/app-header";
@@ -7,12 +8,14 @@ import { WizardStepper } from "@/components/wizard/wizard-stepper";
 import { PurposeGroupCard } from "@/components/wizard/purpose-group-card";
 import { useWizard } from "@/components/wizard/wizard-context";
 import { countSelectedItems, summarizeGroups } from "@/lib/consent-policy/selectors";
+import { purposeGroupErrors } from "@/lib/consent-policy/validation";
 
 export default function PurposeGroupsPage() {
   const { state, dispatch, showToast } = useWizard();
   const router = useRouter();
   const summary = summarizeGroups(state.purposeGroups);
   const itemCount = countSelectedItems(state.purposeGroups);
+  const [showErrors, setShowErrors] = useState(false);
 
   const parts: string[] = [];
   if (summary.requiredCount) parts.push("필수 1건");
@@ -45,7 +48,12 @@ export default function PurposeGroupsPage() {
       </p>
 
       {state.purposeGroups.map((group) => (
-        <PurposeGroupCard key={group.id} group={group} canRemove={state.purposeGroups.length > 1} />
+        <PurposeGroupCard
+          key={group.id}
+          group={group}
+          canRemove={state.purposeGroups.length > 1}
+          showErrors={showErrors}
+        />
       ))}
 
       <button
@@ -64,6 +72,12 @@ export default function PurposeGroupsPage() {
         <button
           type="button"
           onClick={() => {
+            const firstError = state.purposeGroups.flatMap((group) => purposeGroupErrors(group))[0];
+            if (firstError) {
+              setShowErrors(true);
+              showToast(firstError);
+              return;
+            }
             dispatch({ type: "step/mark-saved", step: "purpose-groups" });
             showToast("수집 항목과 처리 목적을 저장했습니다");
             router.push("/sharing");

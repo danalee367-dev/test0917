@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppHeader } from "@/components/wizard/app-header";
@@ -7,14 +8,18 @@ import { WizardStepper } from "@/components/wizard/wizard-stepper";
 import { useWizard } from "@/components/wizard/wizard-context";
 import { COMPANY } from "@/lib/consent-policy/company";
 import { defaultEffectiveDate, formatKoreanDate } from "@/lib/consent-policy/date";
+import { serviceInfoErrors } from "@/lib/consent-policy/validation";
+import { cn } from "@/lib/utils";
 
 export default function ServiceInfoPage() {
   const { state, dispatch, showToast } = useWizard();
   const router = useRouter();
   const info = state.serviceInfo;
   const defaultDateLabel = formatKoreanDate(defaultEffectiveDate());
+  const [showErrors, setShowErrors] = useState(false);
 
   const update = (patch: Partial<typeof info>) => dispatch({ type: "service-info/update", patch });
+  const fieldError = (condition: boolean, message: string) => (showErrors && condition ? message : null);
 
   return (
     <main className="mx-auto w-full min-w-0 max-w-3xl px-4 pb-16">
@@ -37,10 +42,15 @@ export default function ServiceInfoPage() {
             type="text"
             value={info.name}
             onChange={(e) => update({ name: e.target.value })}
-            className="h-8 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            aria-invalid={showErrors && !info.name.trim()}
+            className={cn(
+              "h-8 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+              showErrors && !info.name.trim() && "border-destructive",
+            )}
           />
-          <p className="mt-1.5 text-xs text-muted-foreground">
-            이용자에게 보이는 정식 이름을 적으세요. 사내 과제명이나 코드명은 쓰지 않습니다.
+          <p className={cn("mt-1.5 text-xs", showErrors && !info.name.trim() ? "text-destructive" : "text-muted-foreground")}>
+            {fieldError(!info.name.trim(), "서비스명을 입력하세요.") ??
+              "이용자에게 보이는 정식 이름을 적으세요. 사내 과제명이나 코드명은 쓰지 않습니다."}
           </p>
         </div>
 
@@ -90,8 +100,15 @@ export default function ServiceInfoPage() {
             type="text"
             value={info.department}
             onChange={(e) => update({ department: e.target.value })}
-            className="h-8 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            aria-invalid={showErrors && !info.department.trim()}
+            className={cn(
+              "h-8 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+              showErrors && !info.department.trim() && "border-destructive",
+            )}
           />
+          {fieldError(!info.department.trim(), "운영 부서를 입력하세요.") ? (
+            <p className="mt-1.5 text-xs text-destructive">운영 부서를 입력하세요.</p>
+          ) : null}
         </div>
 
         <div className="mb-7.5 grid gap-3.5 sm:grid-cols-2">
@@ -104,8 +121,15 @@ export default function ServiceInfoPage() {
               type="text"
               value={info.ownerName}
               onChange={(e) => update({ ownerName: e.target.value })}
-              className="h-8 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+              aria-invalid={showErrors && !info.ownerName.trim()}
+              className={cn(
+                "h-8 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                showErrors && !info.ownerName.trim() && "border-destructive",
+              )}
             />
+            {fieldError(!info.ownerName.trim(), "담당자 이름을 입력하세요.") ? (
+              <p className="mt-1.5 text-xs text-destructive">담당자 이름을 입력하세요.</p>
+            ) : null}
           </div>
           <div>
             <label htmlFor="svc-tel" className="mb-2.75 flex items-center gap-1.5 text-[15px] font-bold">
@@ -131,10 +155,15 @@ export default function ServiceInfoPage() {
             type="email"
             value={info.ownerEmail}
             onChange={(e) => update({ ownerEmail: e.target.value })}
-            className="h-8 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            aria-invalid={showErrors && !info.ownerEmail.trim()}
+            className={cn(
+              "h-8 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+              showErrors && !info.ownerEmail.trim() && "border-destructive",
+            )}
           />
-          <p className="mt-1.5 text-xs text-muted-foreground">
-            개인 이메일이 아니라 부서에서 함께 받는 대표 주소를 적으세요. 담당자가 바뀌어도 문의가 끊기지 않습니다.
+          <p className={cn("mt-1.5 text-xs", showErrors && !info.ownerEmail.trim() ? "text-destructive" : "text-muted-foreground")}>
+            {fieldError(!info.ownerEmail.trim(), "대표 이메일을 입력하세요.") ??
+              "개인 이메일이 아니라 부서에서 함께 받는 대표 주소를 적으세요. 담당자가 바뀌어도 문의가 끊기지 않습니다."}
           </p>
         </div>
       </section>
@@ -193,6 +222,12 @@ export default function ServiceInfoPage() {
         <button
           type="button"
           onClick={() => {
+            const errors = serviceInfoErrors(info);
+            if (errors.length > 0) {
+              setShowErrors(true);
+              showToast(errors.length > 1 ? `${errors[0]} (외 ${errors.length - 1}개)` : errors[0]);
+              return;
+            }
             dispatch({ type: "step/mark-saved", step: "service-info" });
             showToast("서비스 정보를 저장했습니다");
             router.push("/purpose-groups");
