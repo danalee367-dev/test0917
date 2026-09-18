@@ -42,11 +42,24 @@ describe("group/toggle-item", () => {
 
     state = wizardReducer(state, { type: "group/toggle-item", id, name: "건강 상태 및 병력" });
     expect(state.purposeGroups[0]!.selectedItems).toEqual([
-      { name: "건강 상태 및 병력", kind: "sensitive" },
+      { name: "건강 상태 및 병력", kind: "sensitive", tier: "required" },
     ]);
 
     state = wizardReducer(state, { type: "group/toggle-item", id, name: "건강 상태 및 병력" });
     expect(state.purposeGroups[0]!.selectedItems).toEqual([]);
+  });
+
+  test("이미 고른 항목의 tier는 스위치를 바꿔도 그대로 유지된다", () => {
+    let state = createInitialWizardState();
+    const id = firstGroupId(state);
+
+    state = wizardReducer(state, { type: "group/toggle-item", id, name: "이름" });
+    state = wizardReducer(state, { type: "group/set-pending-tier", id, tier: "optional" });
+    state = wizardReducer(state, { type: "group/toggle-item", id, name: "생년월일" });
+
+    const items = state.purposeGroups[0]!.selectedItems;
+    expect(items.find((i) => i.name === "이름")!.tier).toBe("required");
+    expect(items.find((i) => i.name === "생년월일")!.tier).toBe("optional");
   });
 
   test("생체정보를 빼면 답변이 함께 지워진다", () => {

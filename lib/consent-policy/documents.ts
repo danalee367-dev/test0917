@@ -83,11 +83,11 @@ const DOC_TITLES: Record<ConsentDocKind, string> = {
 
 function generalRows(groups: PurposeGroup[], tier: "required" | "optional"): ConsentRow[] {
   return groups
-    .filter((group) => isGroupComplete(group) && group.consent === tier)
+    .filter(isGroupComplete)
     .map((group) => ({
       purpose: purposeLabel(group),
       items: group.selectedItems
-        .filter((item) => !isSensitiveEffective(item, group) && !isUniqueEffective(item))
+        .filter((item) => item.tier === tier && !isSensitiveEffective(item, group) && !isUniqueEffective(item))
         .map((item) => item.name),
       retention: group.retention,
     }))
@@ -183,12 +183,20 @@ function buildPolicyDocument(state: WizardState, today: Date, serviceName: strin
   return {
     serviceName,
     effectiveDateLabel: formatKoreanDate(effectiveDate),
-    purposeRows: groups.map((group) => ({
-      tier: group.consent === "optional" ? "선택" : "필수",
-      purpose: purposeLabel(group),
-      items: group.selectedItems.map((item) => item.name),
-      retention: group.retention,
-    })),
+    // 같은 목적 안에도 필수 항목과 선택 항목이 섞일 수 있어, 목적 하나가 필수 행과 선택 행으로
+    // 나뉠 수 있다(둘 다 있으면 두 줄, 한쪽만 있으면 한 줄).
+    purposeRows: groups.flatMap((group): PolicyPurposeRow[] => {
+      const requiredItems = group.selectedItems.filter((item) => item.tier === "required").map((item) => item.name);
+      const optionalItems = group.selectedItems.filter((item) => item.tier === "optional").map((item) => item.name);
+      const rows: PolicyPurposeRow[] = [];
+      if (requiredItems.length > 0) {
+        rows.push({ tier: "필수", purpose: purposeLabel(group), items: requiredItems, retention: group.retention });
+      }
+      if (optionalItems.length > 0) {
+        rows.push({ tier: "선택", purpose: purposeLabel(group), items: optionalItems, retention: group.retention });
+      }
+      return rows;
+    }),
     lawRows: dedupeLaws(groups),
     thirdPartyRows:
       state.sharing.noThirdParties || state.sharing.thirdParties.length === 0

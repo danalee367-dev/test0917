@@ -38,6 +38,8 @@ export type ConsentTier = "required" | "optional";
 export interface SelectedItem {
   name: string;
   kind: ItemKind;
+  /** 이 항목을 고를 때 적용되어 있던 필수/선택. 이후 pendingTier가 바뀌어도 이 값은 바뀌지 않는다. */
+  tier: ConsentTier;
 }
 
 export interface PurposeGroup {
@@ -50,7 +52,11 @@ export interface PurposeGroup {
   retention: string;
   /** 목적 선택으로 자동 채워진 값인지, 사용자가 직접 고친 값인지 */
   retentionAuto: boolean;
-  consent: ConsentTier;
+  /**
+   * 새로 고르는 항목에 붙을 필수/선택 태그를 정하는 스위치. 이미 고른 항목의 tier에는
+   * 영향을 주지 않는다 — 같은 묶음 안에서도 항목마다 필수/선택이 다를 수 있다.
+   */
+  pendingTier: ConsentTier;
   biometricAnswer: "yes" | "no" | null;
   ageAnswer: "yes" | "no" | null;
   rrnBasis: string;

@@ -6,6 +6,7 @@ import { ItemPicker } from "./item-picker";
 import { FollowupQuestion } from "./followup-question";
 import { PURPOSES } from "@/lib/consent-policy/purposes";
 import { RETENTION_SAMPLES, topicParticle } from "@/lib/consent-policy/korean";
+import { loadRecentPurposes, saveRecentPurpose } from "@/lib/consent-policy/recent-purposes";
 import {
   hasBiometricItem,
   hasBirthDate,
@@ -14,8 +15,55 @@ import {
   isUniqueEffective,
 } from "@/lib/consent-policy/selectors";
 import { purposeLabel } from "@/lib/consent-policy/types";
-import type { PurposeGroup } from "@/lib/consent-policy/types";
+import type { PurposeGroup, SelectedItem } from "@/lib/consent-policy/types";
 import { cn } from "@/lib/utils";
+
+/** 수집 항목 하나를 표시하는 태그. 색은 이 항목에 저장된 tier를 따르고, 필수/선택 스위치를 바꿔도 바뀌지 않는다. */
+function ItemChip({
+  item,
+  awaitingAnswer,
+  onRemove,
+}: {
+  item: SelectedItem;
+  awaitingAnswer: boolean;
+  onRemove: () => void;
+}) {
+  const isWarnKind = item.kind === "sensitive" || item.kind === "unique";
+  const isDestructiveKind = item.kind === "rrn";
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full border py-0.75 pr-1 pl-2.25 text-xs font-medium",
+        isWarnKind && "border-warning bg-warning/15 text-warning",
+        isDestructiveKind && "border-destructive bg-destructive/15 text-destructive",
+        !isWarnKind &&
+          !isDestructiveKind &&
+          (item.tier === "optional"
+            ? "border-optional bg-optional text-optional-foreground"
+            : "border-primary bg-primary text-primary-foreground"),
+        awaitingAnswer && "ring-2 ring-warning ring-offset-1",
+      )}
+    >
+      {item.name}
+      {awaitingAnswer ? (
+        <span
+          title="이 항목 때문에 아래에 답할 질문이 있습니다"
+          className="rounded-full bg-warning px-1 text-[9px] font-bold text-warning-foreground"
+        >
+          ？
+        </span>
+      ) : null}
+      <button
+        type="button"
+        aria-label={`${item.name} 제거`}
+        onClick={onRemove}
+        className="rounded-full px-1 opacity-70 hover:bg-black/15 hover:opacity-100"
+      >
+        ×
+      </button>
+    </span>
+  );
+}
 
 export function PurposeGroupCard({
   group,
@@ -28,14 +76,25 @@ export function PurposeGroupCard({
 }) {
   const { dispatch, showToast } = useWizard();
   const [customDraft, setCustomDraft] = useState(group.customPurpose);
+  const [recentPurposes, setRecentPurposes] = useState<string[]>([]);
   const label = purposeLabel(group);
-  const isOptional = group.consent === "optional";
+  // 이 스위치는 "지금부터 새로 고르는 항목"에 붙을 태그를 정한다. 이미 고른 항목의 태그는
+  // 각 항목이 선택된 시점의 값으로 고정되어 있어 이 스위치를 바꿔도 변하지 않는다.
+  const isOptional = group.pendingTier === "optional";
+  const requiredItems = group.selectedItems.filter((item) => item.tier === "required");
+  const optionalItems = group.selectedItems.filter((item) => item.tier === "optional");
   const missingPurpose = showErrors && !label.trim();
   const missingItems = showErrors && group.selectedItems.length === 0;
   const missingRetention = showErrors && !group.retention.trim();
   const missingRrnBasis = showErrors && hasRrnItem(group) && !group.rrnBasis.trim();
   const missingAgeAnswer = showErrors && hasBirthDate(group) && group.ageAnswer === null;
   const missingBiometricAnswer = showErrors && hasBiometricItem(group) && group.biometricAnswer === null;
+  // showErrors와 무관하게, 항목을 고른 순간부터 "이 항목 때문에 아래에 답할 질문이 있다"는 걸 보여준다.
+  const itemsAwaitingAnswer = new Set<string>();
+  if (hasBirthDate(group) && group.ageAnswer === null) itemsAwaitingAnswer.add("생년월일");
+  if (hasBiometricItem(group) && group.biometricAnswer === null) {
+    group.selectedItems.filter((item) => item.kind === "biometric").forEach((item) => itemsAwaitingAnswer.add(item.name));
+  }
 
   const effectiveSensitiveNames = group.selectedItems
     .filter((item) => isSensitiveEffective(item, group))
@@ -47,40 +106,17 @@ export function PurposeGroupCard({
   const loginNames = group.selectedItems.filter((item) => item.kind === "login").map((item) => item.name);
 
   return (
-    <div
-      className={cn(
-        "mb-3.5 rounded-xl border bg-card p-5",
-        isOptional && "ring-1 ring-optional/30",
-      )}
-    >
-      <div className="mb-4.5 flex flex-wrap items-center gap-2.5 border-b pb-4">
+    <div className="mb-3.5 rounded-xl border bg-card p-5">
+      <div className="mb-2 flex flex-wrap items-center gap-2.5">
         <span className={cn("text-lg font-bold tracking-tight", !label && "text-base font-medium text-muted-foreground")}>
           {label || "새 처리 목적"}
         </span>
-        <div className="inline-flex overflow-hidden rounded-full border">
-          <button
-            type="button"
-            aria-pressed={!isOptional}
-            onClick={() => dispatch({ type: "group/set-consent", id: group.id, consent: "required" })}
-            className={cn(
-              "px-3.5 py-1 text-xs font-medium text-muted-foreground",
-              !isOptional && "bg-primary text-primary-foreground",
-            )}
-          >
-            필수 동의
-          </button>
-          <button
-            type="button"
-            aria-pressed={isOptional}
-            onClick={() => dispatch({ type: "group/set-consent", id: group.id, consent: "optional" })}
-            className={cn(
-              "px-3.5 py-1 text-xs font-medium text-muted-foreground",
-              isOptional && "bg-optional text-optional-foreground",
-            )}
-          >
-            선택 동의
-          </button>
-        </div>
+        {requiredItems.length > 0 || optionalItems.length > 0 ? (
+          <span className="text-xs text-muted-foreground">
+            필수 <b className="font-semibold text-primary">{requiredItems.length}</b>개 · 선택{" "}
+            <b className="font-semibold text-optional">{optionalItems.length}</b>개
+          </span>
+        ) : null}
         <div className="ml-auto">
           <button
             type="button"
@@ -96,6 +132,37 @@ export function PurposeGroupCard({
             삭제
           </button>
         </div>
+      </div>
+
+      <div className="mb-4.5 flex flex-wrap items-center gap-2.5 border-b pb-4">
+        <span className="text-xs text-muted-foreground">지금부터 고르는 항목을</span>
+        <div className="inline-flex overflow-hidden rounded-full border">
+          <button
+            type="button"
+            aria-pressed={!isOptional}
+            onClick={() => dispatch({ type: "group/set-pending-tier", id: group.id, tier: "required" })}
+            className={cn(
+              "px-3.5 py-1 text-xs font-medium text-muted-foreground",
+              !isOptional && "bg-primary text-primary-foreground",
+            )}
+          >
+            필수 동의로 담기
+          </button>
+          <button
+            type="button"
+            aria-pressed={isOptional}
+            onClick={() => dispatch({ type: "group/set-pending-tier", id: group.id, tier: "optional" })}
+            className={cn(
+              "px-3.5 py-1 text-xs font-medium text-muted-foreground",
+              isOptional && "bg-optional text-optional-foreground",
+            )}
+          >
+            선택 동의로 담기
+          </button>
+        </div>
+        <span className="text-xs text-muted-foreground">
+          이미 담은 항목은 그대로 유지되고, 새로 고르는 항목에만 적용됩니다.
+        </span>
       </div>
 
       {/* 처리 목적 */}
@@ -133,20 +200,31 @@ export function PurposeGroupCard({
           </button>
         </div>
         {group.isCustomPurpose ? (
-          <input
-            type="text"
-            value={customDraft}
-            onChange={(e) => {
-              setCustomDraft(e.target.value);
-              dispatch({ type: "group/set-custom-purpose-label", id: group.id, label: e.target.value });
-            }}
-            placeholder="이 서비스가 개인정보를 받는 이유를 적으세요"
-            aria-invalid={missingPurpose}
-            className={cn(
-              "mt-2.5 h-8 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-              missingPurpose && "border-destructive",
-            )}
-          />
+          <>
+            <input
+              type="text"
+              value={customDraft}
+              onChange={(e) => {
+                setCustomDraft(e.target.value);
+                dispatch({ type: "group/set-custom-purpose-label", id: group.id, label: e.target.value });
+              }}
+              onFocus={() => setRecentPurposes(loadRecentPurposes())}
+              onBlur={() => saveRecentPurpose(customDraft)}
+              placeholder="이 서비스가 개인정보를 받는 이유를 적으세요"
+              aria-invalid={missingPurpose}
+              list={`recent-purposes-${group.id}`}
+              className={cn(
+                "mt-2.5 h-8 w-full rounded-lg border bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                missingPurpose && "border-destructive",
+              )}
+            />
+            {/* 이 브라우저에서 예전에 적은 목적명을 자동완성으로 보여준다. 사내 공용 저장소가 없어 팀 간 공유는 안 된다. */}
+            <datalist id={`recent-purposes-${group.id}`}>
+              {recentPurposes.map((p) => (
+                <option key={p} value={p} />
+              ))}
+            </datalist>
+          </>
         ) : null}
         {missingPurpose ? (
           <p className="mt-1.5 text-xs text-destructive">처리 목적을 고르거나 직접 입력하세요.</p>
@@ -160,7 +238,7 @@ export function PurposeGroupCard({
         </label>
         <div
           className={cn(
-            "flex min-h-10.5 flex-wrap items-center gap-1.5 rounded-lg border bg-muted p-2.5",
+            "flex min-h-10.5 flex-col gap-2 rounded-lg border bg-muted p-2.5",
             missingItems && "border-destructive",
           )}
         >
@@ -169,26 +247,34 @@ export function PurposeGroupCard({
               {missingItems ? "수집 항목을 하나 이상 고르세요" : "아래에서 항목을 선택하세요"}
             </span>
           ) : (
-            group.selectedItems.map((item) => (
-              <span
-                key={item.name}
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-full border bg-card py-0.75 pr-1 pl-2.25 text-xs",
-                  (item.kind === "sensitive" || item.kind === "unique") && "border-warning text-warning",
-                  item.kind === "rrn" && "border-destructive text-destructive",
-                )}
-              >
-                {item.name}
-                <button
-                  type="button"
-                  aria-label={`${item.name} 제거`}
-                  onClick={() => dispatch({ type: "group/remove-item", id: group.id, name: item.name })}
-                  className="rounded-full px-1 opacity-60 hover:bg-muted hover:opacity-100"
-                >
-                  ×
-                </button>
-              </span>
-            ))
+            <>
+              {requiredItems.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] font-semibold text-primary">필수</span>
+                  {requiredItems.map((item) => (
+                    <ItemChip
+                      key={item.name}
+                      item={item}
+                      awaitingAnswer={itemsAwaitingAnswer.has(item.name)}
+                      onRemove={() => dispatch({ type: "group/remove-item", id: group.id, name: item.name })}
+                    />
+                  ))}
+                </div>
+              ) : null}
+              {optionalItems.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] font-semibold text-optional">선택</span>
+                  {optionalItems.map((item) => (
+                    <ItemChip
+                      key={item.name}
+                      item={item}
+                      awaitingAnswer={itemsAwaitingAnswer.has(item.name)}
+                      onRemove={() => dispatch({ type: "group/remove-item", id: group.id, name: item.name })}
+                    />
+                  ))}
+                </div>
+              ) : null}
+            </>
           )}
         </div>
 
@@ -349,6 +435,11 @@ export function PurposeGroupCard({
       <div className="mt-4.5">
         <label className="mb-2.75 flex items-center gap-1.5 text-[15px] font-bold">
           보유 및 이용 기간 <span className="text-xs font-semibold text-primary">필수</span>
+          {group.retentionAuto && group.retention ? (
+            <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-semibold text-secondary-foreground">
+              목적에서 자동 채움
+            </span>
+          ) : null}
         </label>
         <input
           type="text"
@@ -365,6 +456,10 @@ export function PurposeGroupCard({
         />
         {missingRetention ? (
           <p className="mt-1.5 text-xs text-destructive">보유 및 이용 기간을 입력하세요.</p>
+        ) : group.retentionAuto && group.retention ? (
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            목적을 고르면 자동으로 들어가는 값입니다. 이 서비스에 맞는 기간인지 확인하고, 다르면 직접 고치세요.
+          </p>
         ) : null}
         <div className="mt-2 flex flex-wrap items-baseline gap-1.5">
           <span className="text-[11px] text-muted-foreground">예시</span>

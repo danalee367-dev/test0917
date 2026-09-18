@@ -188,6 +188,27 @@ describe("buildDocuments", () => {
     expect(withYes.policy.hasChildData).toBe(true);
   });
 
+  test("같은 목적 안에서 필수·선택 항목을 섞으면 각각 다른 동의서와 처리방침 행으로 나뉜다", () => {
+    let state = createInitialWizardState();
+    const id = firstGroupId(state);
+    const purpose = PURPOSES.find((p) => p.label === "회원 가입 및 본인 확인")!;
+    state = wizardReducer(state, { type: "group/select-purpose", id, purpose });
+    state = wizardReducer(state, { type: "group/toggle-item", id, name: "이름" });
+    state = wizardReducer(state, { type: "group/set-pending-tier", id, tier: "optional" });
+    state = wizardReducer(state, { type: "group/toggle-item", id, name: "생년월일" });
+
+    const docs = buildDocuments(state);
+    const kinds = docs.consents.map((d) => d.kind);
+
+    expect(kinds).toEqual(["required", "optional"]);
+    expect(docs.consents.find((d) => d.kind === "required")!.rows[0]!.items).toEqual(["이름"]);
+    expect(docs.consents.find((d) => d.kind === "optional")!.rows[0]!.items).toEqual(["생년월일"]);
+    expect(docs.policy.purposeRows).toEqual([
+      { tier: "필수", purpose: "회원 가입 및 본인 확인", items: ["이름"], retention: "회원 탈퇴 시까지" },
+      { tier: "선택", purpose: "회원 가입 및 본인 확인", items: ["생년월일"], retention: "회원 탈퇴 시까지" },
+    ]);
+  });
+
   test("서비스명을 비우면 문서 전체가 같은 대체 문구를 쓴다", () => {
     const state = createInitialWizardState();
     const docs = buildDocuments(state);

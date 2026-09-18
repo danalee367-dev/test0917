@@ -22,7 +22,7 @@ export type WizardAction =
   | { type: "group/add-custom-item"; id: string; name: string }
   | { type: "group/remove-item"; id: string; name: string }
   | { type: "group/set-retention"; id: string; value: string; auto?: boolean }
-  | { type: "group/set-consent"; id: string; consent: ConsentTier }
+  | { type: "group/set-pending-tier"; id: string; tier: ConsentTier }
   | { type: "group/set-biometric-answer"; id: string; answer: "yes" | "no" }
   | { type: "group/set-age-answer"; id: string; answer: "yes" | "no" }
   | { type: "group/set-rrn-basis"; id: string; value: string }
@@ -110,7 +110,10 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         const exists = group.selectedItems.some((item) => item.name === action.name);
         const selectedItems = exists
           ? group.selectedItems.filter((item) => item.name !== action.name)
-          : [...group.selectedItems, { name: action.name, kind: kindOf(action.name) }];
+          : [
+              ...group.selectedItems,
+              { name: action.name, kind: kindOf(action.name), tier: group.pendingTier },
+            ];
         return reconcileDerivedFields({ ...group, selectedItems });
       });
 
@@ -120,7 +123,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         if (!name || group.selectedItems.some((item) => item.name === name)) return group;
         return {
           ...group,
-          selectedItems: [...group.selectedItems, { name, kind: "normal" }],
+          selectedItems: [...group.selectedItems, { name, kind: "normal", tier: group.pendingTier }],
         };
       });
 
@@ -139,8 +142,8 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
         retentionAuto: action.auto ?? false,
       }));
 
-    case "group/set-consent":
-      return mapGroup(state, action.id, (group) => ({ ...group, consent: action.consent }));
+    case "group/set-pending-tier":
+      return mapGroup(state, action.id, (group) => ({ ...group, pendingTier: action.tier }));
 
     case "group/set-biometric-answer":
       return mapGroup(state, action.id, (group) => ({ ...group, biometricAnswer: action.answer }));

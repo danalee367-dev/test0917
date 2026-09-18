@@ -45,7 +45,7 @@ describe("purposeGroupErrors", () => {
       ...createEmptyPurposeGroup(),
       customPurpose: "본인 확인",
       isCustomPurpose: true,
-      selectedItems: [{ name: "주민등록번호", kind: "rrn" as const }],
+      selectedItems: [{ name: "주민등록번호", kind: "rrn" as const, tier: "required" as const }],
       retention: "회원 탈퇴 시까지",
     };
     expect(purposeGroupErrors(group)).toEqual(["주민등록번호 수집의 근거 법령을 입력하세요"]);
@@ -56,7 +56,7 @@ describe("purposeGroupErrors", () => {
       ...createEmptyPurposeGroup(),
       customPurpose: "본인 확인",
       isCustomPurpose: true,
-      selectedItems: [{ name: "주민등록번호", kind: "rrn" as const }],
+      selectedItems: [{ name: "주민등록번호", kind: "rrn" as const, tier: "required" as const }],
       retention: "회원 탈퇴 시까지",
       rrnBasis: "「소득세법」 제145조",
     };
@@ -68,7 +68,7 @@ describe("purposeGroupErrors", () => {
       ...createEmptyPurposeGroup(),
       customPurpose: "본인 확인",
       isCustomPurpose: true,
-      selectedItems: [{ name: "얼굴 이미지", kind: "biometric" as const }],
+      selectedItems: [{ name: "얼굴 이미지", kind: "biometric" as const, tier: "required" as const }],
       retention: "회원 탈퇴 시까지",
     };
     expect(purposeGroupErrors(group)).toEqual(["생체정보를 특정 개인을 알아보기 위해 처리하는지 답하세요"]);
@@ -79,7 +79,7 @@ describe("purposeGroupErrors", () => {
       ...createEmptyPurposeGroup(),
       customPurpose: "회원 가입",
       isCustomPurpose: true,
-      selectedItems: [{ name: "생년월일", kind: "normal" as const }],
+      selectedItems: [{ name: "생년월일", kind: "normal" as const, tier: "required" as const }],
       retention: "회원 탈퇴 시까지",
     };
     expect(purposeGroupErrors(group)).toEqual(["만 14세 미만 아동 이용 여부에 답하세요"]);
@@ -91,8 +91,8 @@ describe("purposeGroupErrors", () => {
       customPurpose: "본인 확인",
       isCustomPurpose: true,
       selectedItems: [
-        { name: "얼굴 이미지", kind: "biometric" as const },
-        { name: "생년월일", kind: "normal" as const },
+        { name: "얼굴 이미지", kind: "biometric" as const, tier: "required" as const },
+        { name: "생년월일", kind: "normal" as const, tier: "required" as const },
       ],
       retention: "회원 탈퇴 시까지",
       biometricAnswer: "no" as const,

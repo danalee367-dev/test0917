@@ -40,11 +40,11 @@ export const CATALOG: Record<string, CatalogCategory> = {
     key: "auto",
     label: "자동 수집 정보",
     items: [
+      "쿠키",
       "IP 주소",
       "접속 로그",
       "기기 식별정보",
       "광고 식별자",
-      "쿠키",
       "서비스 이용 기록",
     ],
   },
@@ -114,7 +114,7 @@ export const ALWAYS_SHOWN_CATEGORY_KEYS = [
 ] as const;
 
 /** 목적별 추천 대상이 되는 카테고리 순서 */
-export const SUGGESTIBLE_CATEGORY_KEYS = ["basic", "usage", "auto"] as const;
+export const SUGGESTIBLE_CATEGORY_KEYS = ["basic", "auto", "usage"] as const;
 
 const RRN_NAME = "주민등록번호";
 

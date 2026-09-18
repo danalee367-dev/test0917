@@ -29,23 +29,27 @@ export default function PurposeGroupsPage() {
       <AppHeader />
       <WizardStepper />
 
-      <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-4">
-        <h1 className="text-2xl font-bold tracking-tight">수집 항목과 처리 목적</h1>
-        <div className="text-right text-xs leading-relaxed text-muted-foreground">
-          <div>
-            처리 목적 <b className="font-semibold text-foreground">{state.purposeGroups.length}</b>개 · 수집 항목{" "}
-            <b className="font-semibold text-foreground">{itemCount}</b>개
-          </div>
-          <div>
-            만들어질 동의서{" "}
-            <b className="font-semibold text-foreground">{parts.length ? parts.join(", ") : "없음"}</b>
-          </div>
-        </div>
-      </div>
-      <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
+      <h1 className="mb-1.5 text-2xl font-bold tracking-tight">수집 항목과 처리 목적</h1>
+      <p className="mb-3 text-sm leading-relaxed text-muted-foreground">
         먼저 개인정보를 왜 받는지 고르면, 그 목적에 흔히 쓰이는 항목이 아래에 나타납니다. 목적 하나에 항목과 보유
         기간이 딸리고, 목적이 여러 개라면 아래에서 추가하세요.
       </p>
+
+      {/* 목적이 여러 개면 카드가 길게 이어지므로, 지금까지 입력한 내용을 스크롤 중에도 볼 수 있게 고정한다 */}
+      <div className="sticky top-0 z-20 -mx-4 mb-6 border-b bg-background/95 px-4 py-2 backdrop-blur-sm">
+        <div className="flex flex-wrap items-baseline justify-end gap-4 text-xs leading-relaxed text-muted-foreground">
+          <div className="text-right">
+            <div>
+              처리 목적 <b className="font-semibold text-foreground">{state.purposeGroups.length}</b>개 · 수집 항목{" "}
+              <b className="font-semibold text-foreground">{itemCount}</b>개
+            </div>
+            <div>
+              만들어질 동의서{" "}
+              <b className="font-semibold text-foreground">{parts.length ? parts.join(", ") : "없음"}</b>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {state.purposeGroups.map((group) => (
         <PurposeGroupCard

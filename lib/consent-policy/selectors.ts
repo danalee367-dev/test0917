@@ -56,8 +56,8 @@ export function summarizeGroups(groups: PurposeGroup[]): GroupConsentSummary {
   let hasChild = false;
 
   for (const group of groups) {
-    if (group.consent === "optional") optionalCount += 1;
-    else requiredCount += 1;
+    if (group.selectedItems.some((item) => item.tier === "required")) requiredCount += 1;
+    if (group.selectedItems.some((item) => item.tier === "optional")) optionalCount += 1;
     if (hasSensitiveItem(group)) hasSensitive = true;
     if (hasUniqueItem(group)) hasUnique = true;
     if (group.ageAnswer === "yes") hasChild = true;

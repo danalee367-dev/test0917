@@ -10,7 +10,7 @@ export function createEmptyPurposeGroup(): PurposeGroup {
     selectedItems: [],
     retention: "",
     retentionAuto: true,
-    consent: "required",
+    pendingTier: "required",
     biometricAnswer: null,
     ageAnswer: null,
     rrnBasis: "",
