@@ -58,7 +58,6 @@ export const CATALOG: Record<string, CatalogCategory> = {
       "카카오 로그인",
       "Google 계정(Gmail)",
       "Apple 로그인",
-      "MyLG ID",
       "PASS 인증",
     ],
   },
